@@ -4,7 +4,6 @@ members = [
     "hecate_lexer",
     "hecate_parser",
     "hecate_validator",
-    "hecate_ir_gen",
     "hecate_llvm_gen",
     "hecate_builder",
     "hecate_util",
