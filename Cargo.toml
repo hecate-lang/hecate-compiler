@@ -7,5 +7,6 @@ members = [
     "hecate_ir_gen",
     "hecate_llvm_gen",
     "hecate_builder",
-    "hecate_util"
+    "hecate_util",
+    "hecate_compiler"
 ]
