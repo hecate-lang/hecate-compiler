@@ -6,6 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hecate_resolver = { version = "0.1.0", path = "../hecate_validator" }
+hecate_resolver = { version = "0.1.0", path = "../hecate_resolver" }
 hecate_util = { version = "0.1.0", path = "../hecate_util" }
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm15-0"] }
