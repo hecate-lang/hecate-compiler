@@ -3,7 +3,7 @@ resolver = "2"
 members = [
     "hecate_lexer",
     "hecate_parser",
-    "hecate_validator",
+    "hecate_resolver",
     "hecate_llvm_gen",
     "hecate_builder",
     "hecate_util",
