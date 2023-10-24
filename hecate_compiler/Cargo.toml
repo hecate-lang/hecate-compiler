@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 hecate_lexer = { version = "0.1.0", path = "../hecate_lexer" }
 hecate_parser = { version = "0.1.0", path = "../hecate_parser" }
-hecate_validator = { version = "0.1.0", path = "../hecate_validator" }
+hecate_resolver = { version = "0.1.0", path = "../hecate_resolver" }
 hecate_llvm_gen = { version = "0.1.0", path = "../hecate_llvm_gen" }
 
 hecate_util = { version = "0.1.0", path = "../hecate_util" }
