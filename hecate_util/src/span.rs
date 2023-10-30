@@ -1,7 +1,7 @@
-use std::ops::{Deref, DerefMut};
+use std::{ops::{Deref, DerefMut}, fmt::Debug};
 
 #[derive(Clone)]
-struct Spanned<'a, T> {
+pub struct Spanned<'a, T> {
     inner: T,
     loc: Span<'a>
 }
@@ -20,8 +20,14 @@ impl<'a, T> DerefMut for Spanned<'a, T> {
     }
 }
 
+impl<'a, T: Debug> Debug for Spanned<'a, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{{ {:?} @ <{:?}> }}", self.inner, self.loc)
+    }
+}
+
 #[derive(Copy, Clone)]
-enum Span<'a> {
+pub enum Span<'a> {
     Span {
         source: Source<'a>,
         content: &'a str,
@@ -31,8 +37,17 @@ enum Span<'a> {
     Generated
 }
 
+impl<'a> Debug for Span<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Span { start, end, .. } => write!(f, "{}:{}", start, end),
+            Self::Generated => write!(f, "Generated"),
+        }
+    }
+}
+
 #[derive(Copy, Clone, PartialEq)]
-enum Source<'a> {
+pub enum Source<'a> {
     File {
         path: &'a str,
     },
@@ -40,7 +55,15 @@ enum Source<'a> {
 }
 
 impl<'a> Span<'a> {
-    fn join(self, other: Self) -> Option<Self> {
+    pub fn from_source(source: Source<'a>, content: &'a str, start: usize, end: usize) -> Self {
+        Self::Span { source, content, start, end }
+    }
+
+    pub fn dummy() -> Self {
+        Self::Generated
+    }
+
+    pub fn join(self, other: Self) -> Option<Self> {
         match (self, other) {
             (Span::Span { source: source_a,  content, start: start_a, end: end_a }, 
                 Span::Span { source: source_b, content: _, start: start_b, end: end_b })
@@ -50,16 +73,15 @@ impl<'a> Span<'a> {
             (_, _) => None
         }
     }
-    fn as_str(self) -> Option<&'a str> {
+    
+    pub fn as_str(self) -> Option<&'a str> {
         match self {
             Span::Span { content, start, end, .. } => Some(&content[start..end]),
             Span::Generated => None,
         }
     }
-}
 
-impl<'a> Span<'a> {
-    fn with<T>(&self, t: T) -> Spanned<'a, T> {
+    pub fn with<T>(&self, t: T) -> Spanned<'a, T> {
         Spanned { 
             inner: t, loc: *self
         }
