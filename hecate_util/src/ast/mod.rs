@@ -1,42 +1,55 @@
+use std::fmt::Debug;
+
 use crate::span::Spanned;
 
-pub struct Module<'a, Type, Ident> {
-    pub name: Spanned<'a, Ident>,
-    pub functions: Vec<Spanned<'a, Function<'a, Type, Ident>>>
+pub trait AstInfo {
+    type Type: Debug;
+    type Ident: Debug;
+    type ModuleData;
 }
 
-pub type SExpression<'a, Type, VarRef> = Spanned<'a, Expression<'a, Type, VarRef>>;
+pub struct Module<'a, I: AstInfo> {
+    pub name: Spanned<'a, I::Ident>,
+    pub functions: Vec<Spanned<'a, Function<'a, I>>>,
+    pub data: I::ModuleData
+}
+
+pub type SExpression<'a, I> = Spanned<'a, Expression<'a, I>>;
 
 #[derive(Debug)]
-pub struct Expression<'a, Type, Ident> {
-    pub expr: Expr<'a, Type, Ident>,
-    pub ty: Type
+pub struct Expression<'a, I: AstInfo> {
+    pub expr: Expr<'a, I>,
+    pub ty: I::Type
 }
 
-pub type SStatement<'a, Type, VarRef> = Spanned<'a, Statement<'a, Type, VarRef>>;
+pub type SStatement<'a, I> = Spanned<'a, Statement<'a, I>>;
 
 #[derive(Debug)]
-pub enum Statement<'a, Type, VarRef> {
-    Expression(Expression<'a, Type, VarRef>),
-    Let()
+pub enum Statement<'a, I: AstInfo> {
+    Expression(Spanned<'a, Expression<'a, I>>),
+    Let(Spanned<'a, I::Ident>, Spanned<'a, I::Type>, Spanned<'a, Expression<'a, I>>)
 }
 
-pub struct Function<'a, Type, VarRef> {
-    pub name: Spanned<'a, VarRef>,
-    pub args: Vec<(Spanned<'a, Type>, Spanned<'a, VarRef>)>,
-    pub ret: Spanned<'a, Type>
+pub type Argument<'a, I> = (Spanned<'a, <I as AstInfo>::Type>, Spanned<'a, <I as AstInfo>::Ident>);
+
+pub struct Function<'a, I: AstInfo> {
+    pub name: Spanned<'a, I::Ident>,
+    pub args: Vec<Argument<'a, I>>,
+    pub ret: Spanned<'a, I::Type>,
+    pub body: Spanned<'a, Expression<'a, I>>
 }
 
 #[derive(Debug)]
-pub enum Expr<'a, Type, Ident> {
-    Binary(SBinaryOp<'a>, Box<SExpression<'a, Type, Ident>>, Box<SExpression<'a, Type, Ident>>),
-    Unary(SUnaryOp<'a>, Box<SExpression<'a, Type, Ident>>),
-    Variable(Spanned<'a, Ident>),
-    FunctionCall(Spanned<'a, Ident>, Vec<SExpression<'a, Type, Ident>>),
+pub enum Expr<'a, I: AstInfo> {
+    Binary(SBinaryOp<'a>, Box<SExpression<'a, I>>, Box<SExpression<'a, I>>),
+    Unary(SUnaryOp<'a>, Box<SExpression<'a, I>>),
+    Variable(Spanned<'a, I::Ident>),
+    FunctionCall(Spanned<'a, I::Ident>, Vec<SExpression<'a, I>>),
     #[allow(clippy::type_complexity)]
-    If(Vec<(Box<SExpression<'a, Type, Ident>>, Box<SExpression<'a, Type, Ident>>)>, Box<SExpression<'a, Type, Ident>>),
-    Block(Vec<Box<SStatement<'a, Type, Ident>>>, Option<Box<SExpression<'a, Type, Ident>>>),
-    Return(Box<SExpression<'a, Type, Ident>>)
+    If(Vec<(Box<SExpression<'a, I>>, Box<SExpression<'a, I>>)>, Box<SExpression<'a, I>>),
+    Block(Vec<Box<SStatement<'a, I>>>, Option<Box<SExpression<'a, I>>>),
+    Return(Box<SExpression<'a, I>>),
+    Literal(i32)
 }
 
 

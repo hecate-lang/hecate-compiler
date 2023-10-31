@@ -63,12 +63,16 @@ impl<'a> Span<'a> {
         Self::Generated
     }
 
+    pub fn dummied<T>(t: T) -> Spanned<'a, T> {
+        Self::dummy().with(t)
+    }
+
     pub fn join(self, other: Self) -> Option<Self> {
         match (self, other) {
             (Span::Span { source: source_a,  content, start: start_a, end: end_a }, 
                 Span::Span { source: source_b, content: _, start: start_b, end: end_b })
                 if source_a == source_b => 
-                    Some(Span::Span { source: source_a, content: content, start: start_a.min(start_b), end: end_a.max(end_b) }),
+                    Some(Span::Span { source: source_a, content, start: start_a.min(start_b), end: end_a.max(end_b) }),
             (Span::Generated, Span::Generated) => Some(Span::Generated),
             (_, _) => None
         }
