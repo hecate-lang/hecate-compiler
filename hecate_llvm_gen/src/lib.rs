@@ -2,10 +2,16 @@
 use std::{collections::HashMap, path::Path};
 
 use hecate_resolver::{ResolvedType, ResolvedRef, RefId, FullyResulved, ModData};
-use hecate_util::{ast::{Module, Function, Expression, Statement, BinaryOp}, span::{Spanned, Span}};
-use inkwell::{context::Context, module::{Module as LLVMModule, Linkage}, builder::Builder, types::{AnyType, BasicType, AsTypeRef, StringRadix}, targets::{TargetMachine, Target, TargetTriple, InitializationConfig, RelocMode, CodeModel, FileType, TargetData}, values::{BasicValue, ArrayValue, AnyValue, IntValue, BasicValueEnum, FunctionValue, BasicMetadataValueEnum, AnyValueEnum}, AddressSpace, basic_block::BasicBlock };
+use hecate_util::{ast::{Module, Function, Expression, Statement, BinaryOp, UnaryOp}, span::{Spanned, Span}};
+use inkwell::{context::Context, module::{Module as LLVMModule, Linkage}, builder::Builder, types::{AnyType, BasicType, AsTypeRef, StringRadix}, targets::{TargetMachine, Target, TargetTriple, InitializationConfig, RelocMode, CodeModel, FileType, TargetData}, values::{BasicValue, ArrayValue, AnyValue, IntValue, BasicValueEnum, FunctionValue, BasicMetadataValueEnum, AnyValueEnum, InstructionValue}, AddressSpace, basic_block::BasicBlock, attributes::Attribute, InlineAsmDialect, memory_buffer::MemoryBuffer };
 
 pub use inkwell::OptimizationLevel;
+
+struct FunctionCtx<'a> {
+    func: RefId<ResolvedRef>,
+    current_block: BasicBlock<'a>,
+    return_block: BasicBlock<'a>
+}
 
 pub struct LLVMIRModuleGen<'a>{
     context: &'a Context,
@@ -15,8 +21,7 @@ pub struct LLVMIRModuleGen<'a>{
     types: HashMap<RefId<ResolvedType>, &'a dyn AnyType<'a>>,
     functions: HashMap<RefId<ResolvedRef>, FunctionValue<'a>>,
     variables: HashMap<RefId<ResolvedRef>, BasicValueEnum<'a>>,
-    func_stack: Vec<RefId<ResolvedRef>>,
-    block_stack: Vec<BasicBlock<'a>>
+    func: Option<FunctionCtx<'a>>
 }
 
 pub fn llvm_context() -> Context {
@@ -35,8 +40,7 @@ pub fn generate_llvm<'a>(context: &'a Context, module: &'a Module<'a, FullyResul
             types: HashMap::new(),
             variables: HashMap::new(),
             functions: HashMap::new(),
-            func_stack: vec![],
-            block_stack: vec![]
+            func: None
         }
     };
     
@@ -68,7 +72,7 @@ impl<'a> LLVMIRModuleGen<'a> {
         self.builder.position_at_end(basic_block);
         
         let global_string = self.builder.build_global_string_ptr(fmt_str, "fmt_str").unwrap();
-        self.builder.build_call(printf, &[ global_string.as_basic_value_enum().into(), int.into() ], "printf").unwrap();
+        self.builder.build_call(printf, &[ global_string.as_basic_value_enum().into(), int.into() ], "r").unwrap();
         self.builder.build_return(None).unwrap();
 
         let mut id = None;
@@ -100,21 +104,21 @@ impl<'a> LLVMIRModuleGen<'a> {
 
     fn build_function(&mut self, function: &Spanned<'a, Function<'a, FullyResulved>>) {
         let func = self.functions[&*function.name];
-        self.func_stack.push(*function.name);
+        let entry_block = self.context.append_basic_block(func, "entry");
         let entry_block = self.context.append_basic_block(func, "entry");
         self.builder.position_at_end(entry_block);
-        self.block_stack.push(entry_block);
+        self.func = Some(FunctionCtx { func: *function.name, current_block: entry_block, return_block: () });
+        self.block_stack.push();
 
         let r = self.build_expression(&function.body);
         self.builder.build_return(None).unwrap();
-        self.block_stack.pop();
-        self.func_stack.pop();
+        self.func = None
     }
 
     fn build_expression(&mut self, expression: &Spanned<'a, Expression<'a, FullyResulved>>) -> Option<BasicValueEnum<'a>> {
         match &expression.expr {
             hecate_util::ast::Expr::Binary(op, a, b) => self.build_binary(op, a, b),
-            hecate_util::ast::Expr::Unary(_, _) => todo!(),
+            hecate_util::ast::Expr::Unary(op, expr) => self.build_unary(op, expr),
             hecate_util::ast::Expr::Variable(v) => Some(self.variables[&**v]),
             hecate_util::ast::Expr::FunctionCall(func, args) => self.build_function_call(func, args),
             hecate_util::ast::Expr::If(_, _) => todo!(),
@@ -139,18 +143,23 @@ impl<'a> LLVMIRModuleGen<'a> {
         let va = self.build_expression(a).unwrap();
         let vb = self.build_expression(b).unwrap();
         let r = match **op {
-            BinaryOp::Add => self.builder.build_int_add(va.into_int_value(), vb.into_int_value(), "").unwrap(),
-            BinaryOp::Sub => todo!(),
-            BinaryOp::Mul => todo!(),
-            BinaryOp::Div => todo!(),
-            BinaryOp::Gt => todo!(),
-            BinaryOp::Lt => todo!(),
-            BinaryOp::Ge => todo!(),
-            BinaryOp::Le => todo!(),
-            BinaryOp::Eq => todo!(),
-            BinaryOp::Ne => todo!(),
+            BinaryOp::Add => self.builder.build_int_add(va.into_int_value(), vb.into_int_value(), "").unwrap().as_basic_value_enum(),
+            BinaryOp::Sub => self.builder.build_int_sub(va.into_int_value(), vb.into_int_value(), "").unwrap().as_basic_value_enum(),
+            BinaryOp::Mul => self.builder.build_int_mul(va.into_int_value(), vb.into_int_value(), "").unwrap().as_basic_value_enum(),
+            BinaryOp::Div => self.builder.build_int_signed_div(va.into_int_value(), vb.into_int_value(), "").unwrap().as_basic_value_enum(),
+            _ => todo!()
         };
-        Some(r.as_basic_value_enum())
+        Some(r)
+    }
+
+    fn build_unary(&mut self, op: &Spanned<'a, UnaryOp>, expr: &Spanned<'a, Expression<'a, FullyResulved>>) -> Option<BasicValueEnum<'a>> {
+        let v = self.build_expression(expr).unwrap();
+        let r = match **op {
+            UnaryOp::Not => self.builder.build_not(v.into_int_value(), "").unwrap().as_basic_value_enum(),
+            UnaryOp::Minus => self.builder.build_int_neg(v.into_int_value(), "").unwrap().as_basic_value_enum(),
+            UnaryOp::Plus => v,
+        };
+        Some(r)
     }
 
     fn build_function_call(&mut self, func: &Spanned<'a, RefId<ResolvedRef>>, args: &Vec<Spanned<'a, Expression<'a, FullyResulved>>>) -> Option<BasicValueEnum<'a>> {
@@ -207,7 +216,7 @@ impl<'a> LLVMIRModuleGen<'a> {
         let mut llvm_ir = path.as_ref().to_path_buf();
         llvm_ir.set_extension("ll");
         self.module.print_to_file(llvm_ir.as_path()).unwrap();
-        
+
         target_machine.write_to_file(&self.module, FileType::Assembly, assembly.as_path()).unwrap();
         target_machine.write_to_file(&self.module, FileType::Object, obj_path.as_path()).unwrap();
         std::process::Command::new("gcc").arg(obj_path.to_str().unwrap()).arg("-o").arg(exe_path.to_str().unwrap()).output().unwrap();
