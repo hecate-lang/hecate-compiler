@@ -7,6 +7,12 @@ use inkwell::{context::Context, module::{Module as LLVMModule, Linkage}, builder
 
 pub use inkwell::OptimizationLevel;
 
+struct FunctionCtx<'a> {
+    func: RefId<ResolvedRef>,
+    current_block: BasicBlock<'a>,
+    return_block: BasicBlock<'a>
+}
+
 pub struct LLVMIRModuleGen<'a>{
     context: &'a Context,
     module: LLVMModule<'a>,
@@ -15,8 +21,7 @@ pub struct LLVMIRModuleGen<'a>{
     types: HashMap<RefId<ResolvedType>, &'a dyn AnyType<'a>>,
     functions: HashMap<RefId<ResolvedRef>, FunctionValue<'a>>,
     variables: HashMap<RefId<ResolvedRef>, BasicValueEnum<'a>>,
-    func_stack: Vec<RefId<ResolvedRef>>,
-    block_stack: Vec<BasicBlock<'a>>
+    func: Option<FunctionCtx<'a>>
 }
 
 pub fn llvm_context() -> Context {
@@ -35,8 +40,7 @@ pub fn generate_llvm<'a>(context: &'a Context, module: &'a Module<'a, FullyResul
             types: HashMap::new(),
             variables: HashMap::new(),
             functions: HashMap::new(),
-            func_stack: vec![],
-            block_stack: vec![]
+            func: None
         }
     };
     
@@ -100,21 +104,21 @@ impl<'a> LLVMIRModuleGen<'a> {
 
     fn build_function(&mut self, function: &Spanned<'a, Function<'a, FullyResulved>>) {
         let func = self.functions[&*function.name];
-        self.func_stack.push(*function.name);
+        let entry_block = self.context.append_basic_block(func, "entry");
         let entry_block = self.context.append_basic_block(func, "entry");
         self.builder.position_at_end(entry_block);
-        self.block_stack.push(entry_block);
+        self.func = Some(FunctionCtx { func: *function.name, current_block: entry_block, return_block: () });
+        self.block_stack.push();
 
         let r = self.build_expression(&function.body);
         self.builder.build_return(None).unwrap();
-        self.block_stack.pop();
-        self.func_stack.pop();
+        self.func = None
     }
 
     fn build_expression(&mut self, expression: &Spanned<'a, Expression<'a, FullyResulved>>) -> Option<BasicValueEnum<'a>> {
         match &expression.expr {
             hecate_util::ast::Expr::Binary(op, a, b) => self.build_binary(op, a, b),
-            hecate_util::ast::Expr::Unary(_, _) => todo!(),
+            hecate_util::ast::Expr::Unary(op, expr) => self.build_unary(op, expr),
             hecate_util::ast::Expr::Variable(v) => Some(self.variables[&**v]),
             hecate_util::ast::Expr::FunctionCall(func, args) => self.build_function_call(func, args),
             hecate_util::ast::Expr::If(_, _) => todo!(),
