@@ -1,3 +1,83 @@
+use std::collections::HashMap;
+
+use hecate_llvm_gen::{generate_llvm, llvm_context, OptimizationLevel};
+use hecate_resolver::{ResolvedType, ResolvedRef, RefId, FullyResulved, ModData};
+use hecate_util::{ast::{Module, Function, Expression, Expr, Statement}, span::{Spanned, Span}};
+
 fn main() {
-    println!("Hello, world!");
+    let unit_ty = RefId::<ResolvedType>::new();
+    let i32_ty = RefId::<ResolvedType>::new();
+    let main = RefId::<ResolvedRef>::new();
+    let var_a = RefId::<ResolvedRef>::new();
+    let var_b = RefId::<ResolvedRef>::new();
+    let var_c = RefId::<ResolvedRef>::new();
+    
+    let print_int = RefId::<ResolvedRef>::new();
+
+    let module = RefId::<ResolvedRef>::new();
+
+    let mut references = HashMap::new();
+    references.insert(main, "main");
+    references.insert(var_a, "a");
+    references.insert(var_b, "b");
+    references.insert(var_c, "c");
+    references.insert(print_int, "print_int");
+    references.insert(module, "test_module");
+
+
+    let ast = Module::<FullyResulved> {
+        data: ModData {
+            references
+        },
+        name: Span::dummied(module),
+        functions: vec![
+            Span::dummied(Function { 
+                name: Span::dummied(main),
+                args: vec![],
+                ret: Span::dummied(unit_ty),
+                body: Span::dummied(
+                    Expression { 
+                        expr: Expr::Block(vec![
+                            Box::new(
+                                Span::dummied(Statement::Let(
+                                    Span::dummied(var_a), 
+                                    Span::dummied(i32_ty),
+                                    Span::dummied(Expression { expr: Expr::Literal(42), ty: i32_ty })
+                                ))
+                            ),
+                            Box::new(
+                                Span::dummied(Statement::Let(
+                                    Span::dummied(var_b), 
+                                    Span::dummied(i32_ty),
+                                    Span::dummied(Expression { expr: Expr::Literal(69), ty: i32_ty})
+                                ))
+                            ),
+                            Box::new(
+                                Span::dummied(Statement::Let(
+                                    Span::dummied(var_c), 
+                                    Span::dummied(i32_ty),
+                                    Span::dummied(Expression { expr: Expr::Binary(
+                                        Span::dummied(hecate_util::ast::BinaryOp::Add), 
+                                        Box::new(Span::dummied(Expression { expr: Expr::Variable(Span::dummied(var_a)), ty: i32_ty })), 
+                                        Box::new(Span::dummied(Expression { expr: Expr::Variable(Span::dummied(var_b)), ty: i32_ty }))
+                                    ), ty: i32_ty})
+                                ))
+                            ),
+                            Box::new(
+                                Span::dummied(Statement::Expression(Span::dummied(
+                                    Expression { expr: Expr::FunctionCall(Span::dummied(print_int), vec![
+                                        Span::dummied(Expression { expr: Expr::Variable(Span::dummied(var_c)), ty: i32_ty})
+                                    ]), ty: unit_ty}
+                                )))
+                            )
+                        ], None), 
+                        ty: unit_ty
+                    }
+                )
+            })
+        ],
+    };
+    let context = llvm_context();
+    let llvm = generate_llvm(&context, &ast);
+    llvm.build("out", OptimizationLevel::None);
 }
