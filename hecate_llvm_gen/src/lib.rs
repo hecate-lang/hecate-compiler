@@ -1,16 +1,19 @@
+pub mod ir;
+pub mod gen;
 
 use std::{collections::HashMap, path::Path};
 
-use hecate_resolver::{ResolvedType, ResolvedRef, RefId, FullyResulved, ModData};
-use hecate_util::{ast::{Module, Function, Expression, Statement, BinaryOp, UnaryOp}, span::{Spanned, Span}};
-use inkwell::{context::Context, module::{Module as LLVMModule, Linkage}, builder::Builder, types::{AnyType, BasicType, AsTypeRef, StringRadix}, targets::{TargetMachine, Target, TargetTriple, InitializationConfig, RelocMode, CodeModel, FileType, TargetData}, values::{BasicValue, ArrayValue, AnyValue, IntValue, BasicValueEnum, FunctionValue, BasicMetadataValueEnum, AnyValueEnum, InstructionValue}, AddressSpace, basic_block::BasicBlock, attributes::Attribute, InlineAsmDialect, memory_buffer::MemoryBuffer };
+use hecate_resolver::{ResolvedType, ResolvedRef, RefId, FullyResolved, ModData};
+use hecate_util::{ast::{Module, Function, Expression, Statement, BinaryOp, UnaryOp}, span::{Spanned}};
+use inkwell::{context::Context, module::Module as LLVMModule, builder::Builder, types::AnyType, targets::{TargetMachine, Target, TargetTriple, InitializationConfig, RelocMode, CodeModel, FileType, TargetData}, values::{BasicValue, ArrayValue, AnyValue, IntValue, BasicValueEnum, FunctionValue, BasicMetadataValueEnum, AnyValueEnum, InstructionValue}, AddressSpace, basic_block::BasicBlock, attributes::Attribute, InlineAsmDialect, memory_buffer::MemoryBuffer };
 
 pub use inkwell::OptimizationLevel;
 
 struct FunctionCtx<'a> {
     func: RefId<ResolvedRef>,
-    current_block: BasicBlock<'a>,
-    return_block: BasicBlock<'a>
+    end: BasicBlock<'a>,
+    ret: BasicBlock<'a>,
+    current: BasicBlock<'a>
 }
 
 pub struct LLVMIRModuleGen<'a>{
@@ -28,7 +31,7 @@ pub fn llvm_context() -> Context {
     Context::create()
 }
 
-pub fn generate_llvm<'a>(context: &'a Context, module: &'a Module<'a, FullyResulved>) -> LLVMIRModuleGen<'a> {
+pub fn generate_llvm<'a>(context: &'a Context, module: &'a Module<'a, FullyResolved>) -> LLVMIRModuleGen<'a> {
     let mut modgen = {
         let m = context.create_module(module.data.references[&*module.name]);
         let builder = context.create_builder();
@@ -95,51 +98,109 @@ impl<'a> LLVMIRModuleGen<'a> {
         //self.builder.build_return(None).unwrap();
     }
 
-    fn declare_function(&mut self, function: &Spanned<'a, Function<'a, FullyResulved>>) {
+    fn declare_function(&mut self, function: &Spanned<'a, Function<'a, FullyResolved>>) {
         let t = self.context.void_type();
         let fn_type = t.fn_type(&[], false);
         let func = self.module.add_function(self.mod_data.references[&*function.name], fn_type, None);
         self.functions.insert(*function.name, func);
     }
 
-    fn build_function(&mut self, function: &Spanned<'a, Function<'a, FullyResulved>>) {
+    fn build_function(&mut self, function: &Spanned<'a, Function<'a, FullyResolved>>) {
         let func = self.functions[&*function.name];
         let entry_block = self.context.append_basic_block(func, "entry");
-        let entry_block = self.context.append_basic_block(func, "entry");
+        let return_block = self.context.append_basic_block(func, "return");
+        self.func = Some(FunctionCtx { func: *function.name, end: return_block, ret: return_block, current: entry_block });
+        
         self.builder.position_at_end(entry_block);
-        self.func = Some(FunctionCtx { func: *function.name, current_block: entry_block, return_block: () });
-        self.block_stack.push();
-
         let r = self.build_expression(&function.body);
+        self.builder.build_unconditional_branch(return_block).unwrap();
+
+        self.builder.position_at_end(return_block);
         self.builder.build_return(None).unwrap();
         self.func = None
     }
 
-    fn build_expression(&mut self, expression: &Spanned<'a, Expression<'a, FullyResulved>>) -> Option<BasicValueEnum<'a>> {
+    fn build_expression(&mut self, expression: &Spanned<'a, Expression<'a, FullyResolved>>) -> Option<BasicValueEnum<'a>> {
         match &expression.expr {
             hecate_util::ast::Expr::Binary(op, a, b) => self.build_binary(op, a, b),
             hecate_util::ast::Expr::Unary(op, expr) => self.build_unary(op, expr),
             hecate_util::ast::Expr::Variable(v) => Some(self.variables[&**v]),
             hecate_util::ast::Expr::FunctionCall(func, args) => self.build_function_call(func, args),
-            hecate_util::ast::Expr::If(_, _) => todo!(),
+            hecate_util::ast::Expr::If(if_do, otherwise) => self.build_if(if_do, otherwise),
             hecate_util::ast::Expr::Block(stmts, expr) => self.build_block(stmts, expr),
-            hecate_util::ast::Expr::Return(_) => todo!(),
+            hecate_util::ast::Expr::Return(expr) => self.build_return(expr),
             hecate_util::ast::Expr::Literal(v) => Some(self.context.i32_type().const_int(*v as u64, false).as_basic_value_enum()),
         }
     }
 
-    fn build_block(&mut self, stmts: &Vec<Box<Spanned<'a, Statement<'a, FullyResulved>>>>, expr: &Option<Box<Spanned<'a, Expression<'a, FullyResulved>>>>) -> Option<BasicValueEnum<'a>> {
+    #[allow(clippy::type_complexity)]
+    fn build_if(&mut self, if_do: &Vec<(Spanned<'a, Expression<'a, FullyResolved>>, Spanned<'a, Expression<'a, FullyResolved>>)>, otherwise: &Spanned<'a, Expression<'a, FullyResolved>>) -> Option<BasicValueEnum<'a>> {
+        let continue_block = self.context.insert_basic_block_after(self.func.as_mut().unwrap().current, "contine");
+        for (cond, expr) in if_do {
+            let c = self.build_expression(cond);
+            let then_block = self.context.insert_basic_block_after(self.func.as_mut().unwrap().current, "then");
+            let else_block = self.context.insert_basic_block_after(then_block, "else");
+            self.builder.build_conditional_branch(c.unwrap().into_int_value(), then_block, else_block).unwrap();
+
+            self.builder.position_at_end(then_block);
+            self.func.as_mut().unwrap().current = then_block;
+            self.build_expression(expr);
+            self.builder.build_unconditional_branch(continue_block).unwrap();
+            
+            self.builder.position_at_end(else_block);
+        }
+        self.build_expression(otherwise);
+        self.builder.build_unconditional_branch(continue_block).unwrap();
+        self.builder.position_at_end(continue_block);
+        self.func.as_mut().unwrap().current = continue_block;
+        None
+    }
+
+    fn build_return(&mut self, expr: &Spanned<'a, Expression<'a, FullyResolved>>) -> Option<BasicValueEnum<'a>> {
+        self.builder.build_unconditional_branch(self.func.as_ref().unwrap().ret).unwrap();
+        None
+    }
+
+    fn build_block(&mut self, stmts: &Vec<Spanned<'a, Statement<'a, FullyResolved>>>, expr: &Option<Box<Spanned<'a, Expression<'a, FullyResolved>>>>) -> Option<BasicValueEnum<'a>> {
+        let (old_end, old_ret) = {
+            let f = self.func.as_mut().unwrap();
+            let scope_end = self.context.prepend_basic_block(f.end, "block_end");
+            let scope_ret = self.context.prepend_basic_block(f.end, "block_ret");
+            let old_end = f.end;
+            let old_ret = f.ret;
+            f.end = scope_end;
+            f.ret = scope_ret;
+            (old_end, old_ret)
+        };
+
         for stmt in stmts {
             self.build_statement(stmt);
         }
-        if let Some(expr) = expr {
+        let r = if let Some(expr) = expr {
             self.build_expression(expr)
         } else {
             None
+        };
+
+        {
+            let f = self.func.as_mut().unwrap();
+            
+            self.builder.build_unconditional_branch(f.end).unwrap();
+
+            self.builder.position_at_end(f.ret);
+            self.builder.build_unconditional_branch(old_ret).unwrap();
+            
+            self.builder.position_at_end(f.end);
+            
+            f.current = f.end;
+            f.end = old_end;
+            f.ret = old_ret;
         }
+        
+        r
     }
 
-    fn build_binary(&mut self, op: &Spanned<'a, BinaryOp>, a: &Spanned<'a, Expression<'a, FullyResulved>>, b: &Spanned<'a, Expression<'a, FullyResulved>>) -> Option<BasicValueEnum<'a>> {
+    fn build_binary(&mut self, op: &Spanned<'a, BinaryOp>, a: &Spanned<'a, Expression<'a, FullyResolved>>, b: &Spanned<'a, Expression<'a, FullyResolved>>) -> Option<BasicValueEnum<'a>> {
         let va = self.build_expression(a).unwrap();
         let vb = self.build_expression(b).unwrap();
         let r = match **op {
@@ -152,7 +213,7 @@ impl<'a> LLVMIRModuleGen<'a> {
         Some(r)
     }
 
-    fn build_unary(&mut self, op: &Spanned<'a, UnaryOp>, expr: &Spanned<'a, Expression<'a, FullyResulved>>) -> Option<BasicValueEnum<'a>> {
+    fn build_unary(&mut self, op: &Spanned<'a, UnaryOp>, expr: &Spanned<'a, Expression<'a, FullyResolved>>) -> Option<BasicValueEnum<'a>> {
         let v = self.build_expression(expr).unwrap();
         let r = match **op {
             UnaryOp::Not => self.builder.build_not(v.into_int_value(), "").unwrap().as_basic_value_enum(),
@@ -162,7 +223,7 @@ impl<'a> LLVMIRModuleGen<'a> {
         Some(r)
     }
 
-    fn build_function_call(&mut self, func: &Spanned<'a, RefId<ResolvedRef>>, args: &Vec<Spanned<'a, Expression<'a, FullyResulved>>>) -> Option<BasicValueEnum<'a>> {
+    fn build_function_call(&mut self, func: &Spanned<'a, RefId<ResolvedRef>>, args: &Vec<Spanned<'a, Expression<'a, FullyResolved>>>) -> Option<BasicValueEnum<'a>> {
         let mut arg_refs = vec![];
         for arg in args {
             arg_refs.push(BasicMetadataValueEnum::from(self.build_expression(arg).unwrap()));
@@ -172,14 +233,14 @@ impl<'a> LLVMIRModuleGen<'a> {
     }
 
 
-    fn build_statement(&mut self, stmt: &Spanned<'a, Statement<'a, FullyResulved>>) {
+    fn build_statement(&mut self, stmt: &Spanned<'a, Statement<'a, FullyResolved>>) {
         match &**stmt {
             Statement::Expression(expr) => { let _ = self.build_expression(expr); },
             Statement::Let(var, ty, expr) => self.build_let_assign(var, ty, expr),
         };
     }
 
-    fn build_let_assign(&mut self, var: &Spanned<'a, RefId<ResolvedRef>>, ty: &Spanned<'a, RefId<ResolvedType>>, expr: &Spanned<'a, Expression<'a, FullyResulved>>) {
+    fn build_let_assign(&mut self, var: &Spanned<'a, RefId<ResolvedRef>>, ty: &Spanned<'a, RefId<ResolvedType>>, expr: &Spanned<'a, Expression<'a, FullyResolved>>) {
         let v = self.build_expression(expr).unwrap();
         self.variables.insert(**var, v);
     }

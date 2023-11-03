@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, fmt::Debug, collections::HashMap, cell::Ref, iter, hash::Hash};
+use std::{marker::PhantomData, fmt::{Debug, Display}, collections::HashMap, cell::Ref, iter, hash::Hash};
 
 use hecate_util::{span::Spanned, ast::AstInfo};
 use rand::random;
@@ -24,7 +24,13 @@ impl<T> Hash for RefId<T> {
 
 impl<T> Debug for RefId<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {:016X}", std::any::type_name::<T>(), self.id)
+        write!(f, "{}: {:016X}", ("::".to_string() + std::any::type_name::<T>()).rsplit_once("::").unwrap().1, self.id)
+    }
+}
+
+impl<T> Display for RefId<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:016X}", self.id)
     }
 }
 
@@ -52,13 +58,13 @@ impl<T> Default for RefId<T> {
     }
 }
 
-pub struct FullyResulved<'a>(std::marker::PhantomData<&'a()>);
+pub struct FullyResolved<'a>(std::marker::PhantomData<&'a()>);
 
 pub struct ModData<'a> {
     pub references: HashMap<RefId<ResolvedRef>, &'a str>
 }
 
-impl<'a> AstInfo for FullyResulved<'a> {
+impl<'a> AstInfo for FullyResolved<'a> {
     type Type = RefId<ResolvedType>;
     type Ident = RefId<ResolvedRef>;
     type ModuleData = ModData<'a>;
