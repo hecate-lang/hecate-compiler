@@ -1,10 +1,9 @@
-use hecate_util::ast::BinaryOp;
-use hecate_util::ast::UnaryOp;
+use hecate_util::ast::{BinaryOp, UnaryOp};
 
 pub enum Token {
     Identifier,
     BinaryOp(BinaryOp),
     UnaryOp(UnaryOp),
     AssignmentOp,
-    Delimiter
+    Delimiter,
 }
