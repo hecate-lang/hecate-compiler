@@ -4,7 +4,7 @@ use hecate_util::{span::Spanned, ast::AstInfo};
 use rand::random;
 
 pub struct RefId<T> {
-    id: u64,
+    pub id: u64,
     phantom: PhantomData<T>
 }
 

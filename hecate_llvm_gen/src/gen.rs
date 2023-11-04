@@ -5,10 +5,10 @@ use hecate_util::{span::Spanned, ast::{Module, Function, Expression, Statement, 
 
 use crate::ir::{IRModule, IRLabel, IRInstr, IRFunction, IRValue};
 
-pub struct FunctionCtx<'a> {
-    end: RefId<IRLabel<'a>>,
-    ret: RefId<IRLabel<'a>>,
-    instrs: Vec<IRInstr<'a>>
+pub struct FunctionCtx {
+    end: RefId<IRLabel>,
+    ret: RefId<IRLabel>,
+    instrs: Vec<IRInstr>
 }
 
 pub fn build_module<'a>(module: &'a Module<FullyResolved>) -> IRModule<'a> {
@@ -21,7 +21,7 @@ pub fn build_module<'a>(module: &'a Module<FullyResolved>) -> IRModule<'a> {
     }
 }
 
-fn build_function<'a>(function: &'a Spanned<'a, Function<'a, FullyResolved>>) -> IRFunction<'a> {
+fn build_function<'a>(function: &'a Spanned<'a, Function<'a, FullyResolved>>) -> IRFunction {
     let instrs = vec![];
     let entry_block = RefId::new();
     let return_block = RefId::new();
@@ -41,18 +41,19 @@ fn build_function<'a>(function: &'a Spanned<'a, Function<'a, FullyResolved>>) ->
     ctx.instrs.push(IRInstr::Block(return_block));
     ctx.instrs.push(IRInstr::Return(r));
 
-    IRFunction { 
+    IRFunction {
+        args: function.args.iter().map(|(v, t)| **v).collect(),
         name: *function.name,
         instrs: ctx.instrs
     }
 }
 
-impl<'a> FunctionCtx<'a> {
-    fn build_expression(&mut self, expression: &Spanned<'a, Expression<'a, FullyResolved>>) -> IRValue {
+impl FunctionCtx {
+    fn build_expression(&mut self, expression: &Spanned<Expression<FullyResolved>>) -> IRValue {
         match &expression.expr {
             hecate_util::ast::Expr::Binary(op, a, b) => self.build_binary(op, a, b),
             hecate_util::ast::Expr::Unary(op, expr) => self.build_unary(op, expr),
-            hecate_util::ast::Expr::Variable(v) => IRValue::Ref(**v),
+            hecate_util::ast::Expr::Variable(v) => IRValue::Var(**v),
             hecate_util::ast::Expr::FunctionCall(func, args) => self.build_function_call(func, args),
             hecate_util::ast::Expr::If(if_do, otherwise) => self.build_if(if_do, otherwise),
             hecate_util::ast::Expr::Block(stmts, expr) => self.build_block(stmts, expr),
@@ -62,7 +63,7 @@ impl<'a> FunctionCtx<'a> {
     }
 
     #[allow(clippy::type_complexity)]
-    fn build_if(&mut self, if_do: &Vec<(Spanned<'a, Expression<'a, FullyResolved>>, Spanned<'a, Expression<'a, FullyResolved>>)>, otherwise: &Spanned<'a, Expression<'a, FullyResolved>>) -> IRValue {
+    fn build_if(&mut self, if_do: &Vec<(Spanned<Expression<FullyResolved>>, Spanned<Expression<FullyResolved>>)>, otherwise: &Spanned<Expression<FullyResolved>>) -> IRValue {
         let continue_block = RefId::new();
         let mut phi = vec![];
         let mut last_else_block = RefId::new();
@@ -82,17 +83,17 @@ impl<'a> FunctionCtx<'a> {
         phi.push((v, last_else_block));
         self.instrs.push(IRInstr::Goto(continue_block));
         self.instrs.push(IRInstr::Block(continue_block));
-        let r = IRValue::Ref(RefId::new());
+        let r = RefId::new();
         self.instrs.push(IRInstr::Phi(r, phi));
-        r
+        IRValue::Ref(r)
     }
 
-    fn build_return(&mut self, expr: &Spanned<'a, Expression<'a, FullyResolved>>) -> IRValue {
+    fn build_return(&mut self, expr: &Spanned<Expression<FullyResolved>>) -> IRValue {
         self.instrs.push(IRInstr::Goto(self.ret));
         IRValue::None
     }
 
-    fn build_block(&mut self, stmts: &Vec<Spanned<'a, Statement<'a, FullyResolved>>>, expr: &Option<Box<Spanned<'a, Expression<'a, FullyResolved>>>>) -> IRValue {
+    fn build_block(&mut self, stmts: &Vec<Spanned<Statement<FullyResolved>>>, expr: &Option<Box<Spanned<Expression<FullyResolved>>>>) -> IRValue {
         let old_end = self.end;
         let old_ret = self.ret;
         self.ret = RefId::new();
@@ -121,41 +122,41 @@ impl<'a> FunctionCtx<'a> {
         r
     }
 
-    fn build_binary(&mut self, op: &Spanned<'a, BinaryOp>, a: &Spanned<'a, Expression<'a, FullyResolved>>, b: &Spanned<'a, Expression<'a, FullyResolved>>) -> IRValue {
-        self.build_expression(a);
-        self.build_expression(b);
-        self.instrs.push(IRInstr::Future);
-        IRValue::None
+    fn build_binary(&mut self, op: &Spanned<BinaryOp>, a: &Spanned<Expression<FullyResolved>>, b: &Spanned<Expression<FullyResolved>>) -> IRValue {
+        let v1 = self.build_expression(a);
+        let v2 = self.build_expression(b);
+        let r = RefId::new();
+        self.instrs.push(IRInstr::BinaryOp(r, **op, v1, v2));
+        IRValue::Ref(r)
     }
 
-    fn build_unary(&mut self, op: &Spanned<'a, UnaryOp>, expr: &Spanned<'a, Expression<'a, FullyResolved>>) -> IRValue {
+    fn build_unary(&mut self, op: &Spanned<UnaryOp>, expr: &Spanned<Expression<FullyResolved>>) -> IRValue {
         self.build_expression(expr);
-        self.instrs.push(IRInstr::Future);
+        todo!("unary expr");
         IRValue::None
     }
 
-    fn build_function_call(&mut self, func: &Spanned<'a, RefId<ResolvedRef>>, args: &Vec<Spanned<'a, Expression<'a, FullyResolved>>>) -> IRValue {
+    fn build_function_call(&mut self, func: &Spanned<RefId<ResolvedRef>>, args: &Vec<Spanned<Expression<FullyResolved>>>) -> IRValue {
         let mut arg_refs = vec![];
         for arg in args {
             arg_refs.push(self.build_expression(arg));
         }
-        let r = IRValue::Ref(RefId::new());
+        let r = RefId::new();
         self.instrs.push(IRInstr::Call(r, **func, arg_refs));
         // TODO: arg cleanup
-        r
+        IRValue::Ref(r)
     }
 
 
-    fn build_statement(&mut self, stmt: &Spanned<'a, Statement<'a, FullyResolved>>) {
+    fn build_statement(&mut self, stmt: &Spanned<Statement<FullyResolved>>) {
         match &**stmt {
             Statement::Expression(expr) => { let _ = self.build_expression(expr); },
             Statement::Let(var, ty, expr) => self.build_let_assign(var, ty, expr),
         };
     }
 
-    fn build_let_assign(&mut self, var: &Spanned<'a, RefId<ResolvedRef>>, ty: &Spanned<'a, RefId<ResolvedType>>, expr: &Spanned<'a, Expression<'a, FullyResolved>>) {
-        self.build_expression(expr);
-        self.instrs.push(IRInstr::Future)
+    fn build_let_assign(&mut self, var: &Spanned<RefId<ResolvedRef>>, ty: &Spanned<RefId<ResolvedType>>, expr: &Spanned<Expression<FullyResolved>>) {
+        let v = self.build_expression(expr);
+        self.instrs.push(IRInstr::Alloca(**var, Some(v)));
     }
 }
-

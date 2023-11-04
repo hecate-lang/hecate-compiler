@@ -1,24 +1,24 @@
-// module_name = test_module
+// module_name = "test_module"
 
-fun main:
-  0B6A0124068D8031
-        <future>
-        <future>
-        <future>
-        <future>
-       branch 1 ? 7031455CF5B02AB6 : 081E5328D4F4C85F
-  7031455CF5B02AB6
-     @75AE62ED095310AC = call 00704F3EF63130E0 [@6FD1D467B2E5173F]
-       goto 7D2E34E396078D81
-  081E5328D4F4C85F
-     @BCF7AC4484B92642 = call 00704F3EF63130E0 [@9F7495E63C32ED69]
-       goto 7D2E34E396078D81
-  7D2E34E396078D81
-     @43BEADBED6739465 = psi [@75AE62ED095310AC from 7031455CF5B02AB6, @BCF7AC4484B92642 from 081E5328D4F4C85F]
-       goto B2C1525D9B3ED009
-  A8170EC6049ED826
-       goto B2FB6837FF619E03
-  B2C1525D9B3ED009
-       goto B2FB6837FF619E03
-  B2FB6837FF619E03
-     return ()
+fun main []:
+  a:
+    $b = alloca <todo> with 42
+    $c = alloca <todo> with 69
+    @d = Add $b, $c
+    $e = alloca <todo> with @d
+    branch 1 ? f : g
+  f:
+    @h = call print_int [$b]
+    goto i
+  g:
+    @j = call print_int [$e]
+    goto i
+  i:
+    @k = psi [@h from f, @j from g]
+    goto l
+  m:
+    goto n
+  l:
+    goto n
+  n:
+    return ()
