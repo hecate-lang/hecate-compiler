@@ -30,7 +30,7 @@ pub enum Statement<'a, I: AstInfo> {
     Let(Spanned<'a, I::Ident>, Spanned<'a, I::Type>, Spanned<'a, Expression<'a, I>>)
 }
 
-pub type Argument<'a, I> = (Spanned<'a, <I as AstInfo>::Type>, Spanned<'a, <I as AstInfo>::Ident>);
+pub type Argument<'a, I> = (Spanned<'a, <I as AstInfo>::Ident>, Spanned<'a, <I as AstInfo>::Type>);
 
 pub struct Function<'a, I: AstInfo> {
     pub name: Spanned<'a, I::Ident>,
@@ -55,7 +55,7 @@ pub enum Expr<'a, I: AstInfo> {
 
 pub type SBinaryOp<'a> = Spanned<'a, BinaryOp>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum BinaryOp {
     Add,
     Sub,

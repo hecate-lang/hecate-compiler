@@ -10,3 +10,4 @@ hecate_resolver = { version = "0.1.0", path = "../hecate_resolver" }
 hecate_parser = { version = "0.1.0", path = "../hecate_parser" }
 hecate_util = { version = "0.1.0", path = "../hecate_util" }
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm15-0"] }
+once_cell = "1.18.0"
