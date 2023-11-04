@@ -2,8 +2,8 @@ use std::{ops::{Deref, DerefMut}, fmt::Debug};
 
 #[derive(Clone)]
 pub struct Spanned<'a, T> {
-    inner: T,
-    loc: Span<'a>
+    pub inner: T,
+    pub loc: Span<'a>
 }
 
 impl<'a, T> Deref for Spanned<'a, T> {
