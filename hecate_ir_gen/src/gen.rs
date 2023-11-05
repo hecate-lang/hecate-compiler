@@ -113,11 +113,11 @@ impl FunctionCtx {
         
         self.instrs.push(IRInstr::Goto(self.end));
         self.instrs.push(IRInstr::Block(self.ret));
-        // TODO: ret cleanuo
+        // TODO: cleanup of allocated values/drop
         self.instrs.push(IRInstr::Goto(old_ret));
 
         self.instrs.push(IRInstr::Block(self.end));
-        // TODO: end cleanuo
+        // TODO: cleanup of allocated values/drop
         
         self.end = old_end;
         self.ret = old_ret;
@@ -136,7 +136,6 @@ impl FunctionCtx {
     fn build_unary(&mut self, _op: &Spanned<UnaryOp>, expr: &Spanned<Expression<FullyResolved>>) -> IRValue {
         self.build_expression(expr);
         todo!("unary expr");
-        IRValue::None
     }
 
     fn build_function_call(&mut self, func: &Spanned<RefId<ResolvedRef>>, args: &Vec<Spanned<Expression<FullyResolved>>>) -> IRValue {
@@ -146,7 +145,7 @@ impl FunctionCtx {
         }
         let r = RefId::new();
         self.instrs.push(IRInstr::Call(r, **func, arg_refs));
-        // TODO: arg cleanup
+        // TODO: cleanup of allocated values/drop
         IRValue::Ref(r)
     }
 
