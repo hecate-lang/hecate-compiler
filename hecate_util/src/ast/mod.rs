@@ -55,7 +55,7 @@ pub enum Expr<'a, I: AstInfo> {
 
 pub type SBinaryOp<'a> = Spanned<'a, BinaryOp>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum BinaryOp {
     Add,
     Sub,
@@ -71,7 +71,7 @@ pub enum BinaryOp {
 
 pub type SUnaryOp<'a> = Spanned<'a, UnaryOp>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum UnaryOp {
     Not,
     Minus,
