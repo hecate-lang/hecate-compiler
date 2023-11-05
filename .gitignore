@@ -6,3 +6,5 @@ Cargo.lock
 *.o
 *.ll
 *.asm
+*.ir
+*.bc
