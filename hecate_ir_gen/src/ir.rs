@@ -38,8 +38,8 @@ pub enum IRInstr {
     /// return_val, func_name, args
     Call(RefId<ResolvedRef>, RefId<ResolvedRef>, Vec<IRValue>),
     Return(IRValue),
-    Alloca(RefId<ResolvedRef>, Option<IRValue>),
-    Store(IRValue, IRValue),
+    Alloca(RefId<ResolvedRef>),
+    Store(RefId<ResolvedRef>, IRValue),
     Load(RefId<ResolvedRef>, IRValue),
     BinaryOp(RefId<ResolvedRef>, BinaryOp, IRValue, IRValue)
 }
@@ -109,8 +109,7 @@ impl IRInstr {
             IRInstr::Branch(c, i, e) => format!("    branch {c} ? {} : {}", name_for_ref(i), name_for_ref(e)),
             IRInstr::Call(r, c, v) => format!("    @{} = call {} [{}]", name_for_ref(r), module.references[c], v.iter().map(|v| format!("{v}")).collect::<Vec<_>>().join(", ")),
             IRInstr::Return(v) => format!("    return {v}"),
-            IRInstr::Alloca(r, None) => format!("    @{} = alloca <todo>", name_for_ref(r)),
-            IRInstr::Alloca(r, Some(v)) => format!("    ${} = alloca <todo> with {v}", name_for_ref(r)),
+            IRInstr::Alloca(r) => format!("    @{} = alloca <todo>", name_for_ref(r)),
             IRInstr::Store(r, v) => format!("    store {r} = {v}"),
             IRInstr::Load(r, v) => format!("    @{} = load {v}", name_for_ref(r)),
             IRInstr::BinaryOp(r, op, a, b) => format!("    @{} = {op:?} {a}, {b}", name_for_ref(r))

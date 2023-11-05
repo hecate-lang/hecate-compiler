@@ -9,6 +9,7 @@ edition = "2021"
 hecate_lexer = { version = "0.1.0", path = "../hecate_lexer" }
 hecate_parser = { version = "0.1.0", path = "../hecate_parser" }
 hecate_resolver = { version = "0.1.0", path = "../hecate_resolver" }
+hecate_ir_gen = { version = "0.1.0", path = "../hecate_ir_gen" }
 hecate_llvm_gen = { version = "0.1.0", path = "../hecate_llvm_gen" }
 
 hecate_util = { version = "0.1.0", path = "../hecate_util" }
