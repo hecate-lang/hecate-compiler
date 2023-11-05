@@ -6,6 +6,7 @@ pub enum Token {
     BinaryOp(BinaryOp),
     UnaryOp(UnaryOp),
     AssignmentOp,
+    Literal,
     Delimiter,
     EOF,
 }

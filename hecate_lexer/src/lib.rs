@@ -25,6 +25,11 @@ impl<'a> Lexer<'a> {
             current_pos: 0,
         }
     }
+
+    fn advance(&mut self) {
+        self.iter.next();
+        self.current_pos += 1;
+    }
 }
 
 impl<'a> Iterator for Lexer<'a> {
@@ -49,23 +54,25 @@ impl<'a> Iterator for Lexer<'a> {
             }
         }
 
-        let token_start;
+        let token_start = self.current_pos;
+        let token_type;
 
-        match self.iter.peek() {
-            token if token.unwrap().is_alphabetic() => {
-                token_start = self.collect_identifier();
+        match self.iter.peek().unwrap() {
+            token if token.is_alphabetic() => {
+                token_type = Token::Identifier;
+                self.collect_identifier();
             }
-            Some(&'_') => {
-                token_start = self.collect_identifier();
+            &'_' => {
+                token_type = Token::Identifier;
+                self.collect_identifier();
             }
-            Some(_) => {
-                token_start = self.current_pos;
+            token if token.is_numeric() => {
+                token_type = Token::Literal;
+                self.collect_literal();
             }
-            None => {
-                return Option::Some(Spanned {
-                    inner: Token::EOF,
-                    loc: Span::Generated,
-                });
+            _ => {
+                // This should not happen
+                return None;
             }
         }
 
@@ -75,34 +82,40 @@ impl<'a> Iterator for Lexer<'a> {
             start: token_start,
             end: self.current_pos,
         };
+
         let token = Spanned {
-            inner: Token::Identifier,
+            inner: token_type,
             loc: span,
         };
+
         Option::Some(token)
     }
 }
 
 impl<'a> Lexer<'a> {
-    fn collect_identifier(&mut self) -> usize {
+    fn collect_identifier(&mut self) {
         // as the function is only called when the next character is matched against
         // is_alphabetic() or the underscore char '_' we can move the current_pos of the lexer
-        let token_start = self.current_pos;
         self.advance();
 
         while let Some(ch) = self.iter.peek() {
             if ch.is_alphanumeric() || ch == &'_' {
                 self.advance();
             } else {
-                return token_start;
+                break;
             }
         }
-
-        token_start
     }
 
-    fn advance(&mut self) {
-        self.iter.next();
-        self.current_pos += 1;
+    fn collect_literal(&mut self) {
+        self.advance();
+
+        while let Some(ch) = self.iter.peek() {
+            if ch.is_alphanumeric() || ch == &'.' {
+                self.advance();
+            } else {
+                break;
+            }
+        }
     }
 }

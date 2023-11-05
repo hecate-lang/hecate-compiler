@@ -67,3 +67,33 @@ fn underscore_ident() {
     assert_eq!(spanned.inner, Token::EOF);
     assert_eq!(spanned.loc.as_str(), None);
 }
+
+#[test]
+fn literal() {
+    let input = "3452435.3454235";
+    let mut lexer = Lexer::new(input);
+    let spanned = lexer.next().unwrap();
+    let test_span = Span::from_source(String, input, 0, 15);
+    assert_eq!(spanned.inner, Token::Literal);
+    assert_eq!(spanned.loc.as_str(), test_span.as_str());
+    let spanned = lexer.next().unwrap();
+    assert_eq!(spanned.inner, Token::EOF);
+    assert_eq!(spanned.loc.as_str(), None);
+}
+
+#[test]
+fn literal_and_identifier() {
+    let input = "345.4   _test";
+    let mut lexer = Lexer::new(input);
+    let spanned = lexer.next().unwrap();
+    let test_span = Span::from_source(String, input, 0, 5);
+    assert_eq!(spanned.inner, Token::Literal);
+    assert_eq!(spanned.loc.as_str(), test_span.as_str());
+    let spanned = lexer.next().unwrap();
+    let test_span = Span::from_source(String, input, 8, 13);
+    assert_eq!(spanned.inner, Token::Identifier);
+    assert_eq!(spanned.loc.as_str(), test_span.as_str());
+    let spanned = lexer.next().unwrap();
+    assert_eq!(spanned.inner, Token::EOF);
+    assert_eq!(spanned.loc.as_str(), None);
+}
