@@ -288,7 +288,7 @@ impl FunctionBuilder {
         }
     }
 
-    fn build_call(&mut self, builder: *mut LLVMBuilder, r: &RefId<ResolvedRef>, f: &RefId<ResolvedRef>, args: &Vec<IRValue>, called: &LLVMFunction) {
+    fn build_call(&mut self, builder: *mut LLVMBuilder, r: &RefId<ResolvedRef>, _f: &RefId<ResolvedRef>, args: &Vec<IRValue>, called: &LLVMFunction) {
         unsafe {
             let res = LLVMBuildCall2(builder, called.llvm_ty, called.llvm_func, args.iter()
                 .map(|v| self.llvm_val(builder, v)).collect::<Vec<_>>().as_mut_ptr(), args.len() as u32,
