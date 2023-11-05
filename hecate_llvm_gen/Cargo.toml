@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 hecate_resolver = { version = "0.1.0", path = "../hecate_resolver" }
-hecate_parser = { version = "0.1.0", path = "../hecate_parser" }
+hecate_ir_gen = { version = "0.1.0", path = "../hecate_ir_gen" }
 hecate_util = { version = "0.1.0", path = "../hecate_util" }
-inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm15-0"] }
+llvm-sys = { version="150.1.2"}
 once_cell = "1.18.0"

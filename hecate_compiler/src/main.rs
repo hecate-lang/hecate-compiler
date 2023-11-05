@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use hecate_llvm_gen::{generate_llvm, llvm_context, OptimizationLevel, gen::build_module};
+use hecate_ir_gen::ir::IRModule;
+use hecate_llvm_gen::{LLVMModuleCtx, OptimizationLevel};
 use hecate_resolver::{ResolvedType, ResolvedRef, RefId, FullyResolved, ModData};
 use hecate_util::{ast::{Module, Function, Expression, Expr, Statement}, span::{Spanned, Span}};
 
@@ -80,10 +81,9 @@ fn main() {
             })
         ],
     };
-    let ir = build_module(&module);
 
+    let ir = IRModule::generate(&module);
     std::fs::write("out.ir", ir.to_string()).unwrap();
-    let context = llvm_context();
-    let llvm = generate_llvm(&context, &module);
-    llvm.build("out", OptimizationLevel::None);
+    let llvm = LLVMModuleCtx::generate(&ir);
+    llvm.build("out", OptimizationLevel::None);//
 }

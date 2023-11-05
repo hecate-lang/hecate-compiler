@@ -11,42 +11,45 @@ pub struct FunctionCtx {
     instrs: Vec<IRInstr>
 }
 
-pub fn build_module<'a>(module: &'a Module<FullyResolved>) -> IRModule<'a> {
-    let functions = module.functions.iter()
-        .map(|func| build_function(func)).collect();
-    IRModule::<'a> { 
-        name: *module.name,
-        references: &module.data.references, 
-        functions
+impl<'a> IRModule<'a> {
+    pub fn generate(module: &'a Module<FullyResolved>) -> IRModule<'a> {
+        let functions = module.functions.iter()
+            .map(|func| Self::build_function(func)).collect();
+        IRModule::<'a> { 
+            name: *module.name,
+            references: &module.data.references, 
+            functions
+        }
+    }
+    
+    fn build_function(function: &'a Spanned<'a, Function<'a, FullyResolved>>) -> IRFunction {
+        let instrs = vec![];
+        let entry_block = RefId::new();
+        let return_block = RefId::new();
+    
+        let mut ctx = FunctionCtx {
+            end: return_block,
+            ret: return_block,
+            instrs
+        };
+    
+        ctx.instrs.push(IRInstr::Block(entry_block));
+    
+        let r = ctx.build_expression(&function.body);
+    
+        ctx.instrs.push(IRInstr::Goto(return_block));
+    
+        ctx.instrs.push(IRInstr::Block(return_block));
+        ctx.instrs.push(IRInstr::Return(r));
+    
+        IRFunction {
+            args: function.args.iter().map(|(v, t)| **v).collect(),
+            name: *function.name,
+            instrs: ctx.instrs
+        }
     }
 }
 
-fn build_function<'a>(function: &'a Spanned<'a, Function<'a, FullyResolved>>) -> IRFunction {
-    let instrs = vec![];
-    let entry_block = RefId::new();
-    let return_block = RefId::new();
-
-    let mut ctx = FunctionCtx {
-        end: return_block,
-        ret: return_block,
-        instrs
-    };
-
-    ctx.instrs.push(IRInstr::Block(entry_block));
-
-    let r = ctx.build_expression(&function.body);
-
-    ctx.instrs.push(IRInstr::Goto(return_block));
-
-    ctx.instrs.push(IRInstr::Block(return_block));
-    ctx.instrs.push(IRInstr::Return(r));
-
-    IRFunction {
-        args: function.args.iter().map(|(v, t)| **v).collect(),
-        name: *function.name,
-        instrs: ctx.instrs
-    }
-}
 
 impl FunctionCtx {
     fn build_expression(&mut self, expression: &Spanned<Expression<FullyResolved>>) -> IRValue {
@@ -157,6 +160,7 @@ impl FunctionCtx {
 
     fn build_let_assign(&mut self, var: &Spanned<RefId<ResolvedRef>>, ty: &Spanned<RefId<ResolvedType>>, expr: &Spanned<Expression<FullyResolved>>) {
         let v = self.build_expression(expr);
-        self.instrs.push(IRInstr::Alloca(**var, Some(v)));
+        self.instrs.push(IRInstr::Alloca(**var));
+        self.instrs.push(IRInstr::Store(**var, v));
     }
 }
