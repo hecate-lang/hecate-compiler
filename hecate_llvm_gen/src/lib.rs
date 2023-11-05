@@ -1,13 +1,14 @@
-use std::{collections::HashMap, any::Any, path::Path};
+use std::{collections::HashMap, path::Path, ffi::CStr};
 
 use hecate_ir_gen::ir::{IRModule, IRFunction, IRLabel, IRValue, IRInstr};
 use hecate_resolver::{RefId, ResolvedRef};
 
 use hecate_util::ast::BinaryOp;
-use llvm_sys::{core::*, *, prelude::LLVMBool};
+use llvm_sys::{core::*, *, prelude::LLVMBool, bit_writer::LLVMWriteBitcodeToFile, target_machine::*, target::*};
 
 macro_rules! c_str {
     () => { 
+        #[allow(unused_unsafe)]
         unsafe { std::ffi::CStr::from_ptr("\0".as_ptr() as *const i8) } 
     };
     ($s:literal) => (
@@ -157,10 +158,67 @@ impl LLVMModuleCtx {
         assembly.set_extension("asm");
         let mut llvm_ir = path.as_ref().to_path_buf();
         llvm_ir.set_extension("ll");
+        let mut llvm_bc = path.as_ref().to_path_buf();
+        llvm_bc.set_extension("bc");
         
         unsafe {
+            LLVM_InitializeAllTargets();
+            LLVM_InitializeAllTargetInfos();
+            LLVM_InitializeAllAsmParsers();
+            LLVM_InitializeAllAsmPrinters();
+            LLVM_InitializeAllDisassemblers();
+            LLVM_InitializeAllTargetMCs();
+
             LLVMPrintModuleToFile(self.module, c_str_ptr!(llvm_ir.to_str().unwrap()), std::ptr::null_mut());
+            LLVMWriteBitcodeToFile(self.module, c_str_ptr!(llvm_bc.to_str().unwrap()));
+
+            let triple = LLVMGetDefaultTargetTriple();
+            let features = LLVMGetHostCPUFeatures();
+            let cpu = LLVMGetHostCPUName();
+            let err_string = std::ptr::null_mut();
+            let mut target = std::ptr::null_mut();
+            let target_ret = LLVMGetTargetFromTriple(triple, &mut target, err_string);
+            if target_ret != 0 {
+                panic!("LLVM Error while getting target from triple {}: {}", 
+                    CStr::from_ptr(triple).to_string_lossy(), 
+                    CStr::from_ptr(*err_string).to_string_lossy()
+                );
+            }
+            let target_machine = LLVMCreateTargetMachine(
+                target,
+                triple,
+                cpu,
+                features,
+                match opt {
+                    OptimizationLevel::None => LLVMCodeGenOptLevel::LLVMCodeGenLevelNone,
+                    OptimizationLevel::Less => LLVMCodeGenOptLevel::LLVMCodeGenLevelLess,
+                    OptimizationLevel::Default => LLVMCodeGenOptLevel::LLVMCodeGenLevelDefault,
+                    OptimizationLevel::Aggressive => LLVMCodeGenOptLevel::LLVMCodeGenLevelAggressive,
+                },
+                LLVMRelocMode::LLVMRelocDefault,
+                LLVMCodeModel::LLVMCodeModelDefault,
+            );
+            if target_machine.is_null() {
+                panic!("Could not create LLVM target machine");
+            }
+
+            let err_string = std::ptr::null_mut();
+            let return_code = LLVMTargetMachineEmitToFile(target_machine, self.module, c_str_ptr!(obj_path.to_str().unwrap()) as *mut _, LLVMCodeGenFileType::LLVMObjectFile, err_string);
+            if return_code != 0 {
+                panic!("LLVM Error while compiling to object file: {}", CStr::from_ptr(*err_string).to_string_lossy());
+            }
+
+            let err_string = std::ptr::null_mut();
+            let return_code = LLVMTargetMachineEmitToFile(target_machine, self.module, c_str_ptr!(assembly.to_str().unwrap()) as *mut _, LLVMCodeGenFileType::LLVMAssemblyFile, err_string);
+            if return_code != 0 {
+                panic!("LLVM Error while compiling to object file: {}", CStr::from_ptr(*err_string).to_string_lossy());
+            }
+
+            LLVMDisposeTargetMachine(target_machine);
         }
+        let r = std::process::Command::new("gcc").arg(obj_path.to_str().unwrap()).arg("-o").arg(exe_path.to_str().unwrap()).output().unwrap();
+        println!("{}", String::from_utf8_lossy(&r.stdout[..]));
+        println!("{}", String::from_utf8_lossy(&r.stderr[..]));
     }
 }
 
