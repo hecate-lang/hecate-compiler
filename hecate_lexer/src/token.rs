@@ -7,4 +7,5 @@ pub enum Token {
     UnaryOp(UnaryOp),
     AssignmentOp,
     Delimiter,
+    EOF,
 }
