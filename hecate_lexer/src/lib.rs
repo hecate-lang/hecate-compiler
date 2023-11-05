@@ -7,6 +7,9 @@ use std::{
 
 pub mod token;
 
+#[cfg(test)]
+mod tests;
+
 struct Lexer<'a> {
     input: &'a str,
     iter: Peekable<Chars<'a>>,
