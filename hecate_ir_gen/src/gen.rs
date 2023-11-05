@@ -1,7 +1,7 @@
 use std::vec;
 
 use hecate_resolver::{RefId, FullyResolved, ResolvedRef, ResolvedType};
-use hecate_util::{span::Spanned, ast::{Module, Function, Expression, Statement, BinaryOp, UnaryOp}};
+use hecate_util::{span::Spanned, ast::{Module, Function, Expression, Statement, BinaryOp, UnaryOp, Expr}};
 
 use crate::ir::{IRModule, IRLabel, IRInstr, IRFunction, IRValue};
 
@@ -54,14 +54,14 @@ impl<'a> IRModule<'a> {
 impl FunctionCtx {
     fn build_expression(&mut self, expression: &Spanned<Expression<FullyResolved>>) -> IRValue {
         match &expression.expr {
-            hecate_util::ast::Expr::Binary(op, a, b) => self.build_binary(op, a, b),
-            hecate_util::ast::Expr::Unary(op, expr) => self.build_unary(op, expr),
-            hecate_util::ast::Expr::Variable(v) => IRValue::Var(**v),
-            hecate_util::ast::Expr::FunctionCall(func, args) => self.build_function_call(func, args),
-            hecate_util::ast::Expr::If(if_do, otherwise) => self.build_if(if_do, otherwise),
-            hecate_util::ast::Expr::Block(stmts, expr) => self.build_block(stmts, expr),
-            hecate_util::ast::Expr::Return(expr) => self.build_return(expr),
-            hecate_util::ast::Expr::Literal(v) => IRValue::Literal(*v),
+            Expr::Binary(op, a, b) => self.build_binary(op, a, b),
+            Expr::Unary(op, expr) => self.build_unary(op, expr),
+            Expr::Variable(v) => IRValue::Var(**v),
+            Expr::FunctionCall(func, args) => self.build_function_call(func, args),
+            Expr::If(if_do, otherwise) => self.build_if(if_do, otherwise),
+            Expr::Block(stmts, expr) => self.build_block(stmts, expr),
+            Expr::Return(expr) => self.build_return(expr),
+            Expr::Literal(v) => IRValue::Literal(*v),
         }
     }
 
@@ -161,5 +161,210 @@ impl FunctionCtx {
         let v = self.build_expression(expr);
         self.instrs.push(IRInstr::Alloca(**var));
         self.instrs.push(IRInstr::Store(**var, v));
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use hecate_resolver::{RefId, ResolvedType, FullyResolved};
+    use hecate_util::{ast::{Expr, BinaryOp, Expression, UnaryOp}, span::{Span, Spanned}};
+
+    use crate::{gen::FunctionCtx, ir::{IRInstr, IRValue}};
+
+    fn literal<'a>(i32_ty: RefId<ResolvedType>, v: i32) -> Spanned<'a, Expression<'a, FullyResolved<'a>>> {
+        Span::dummied(Expression {
+            expr: Expr::Literal(v),
+            ty: i32_ty,
+        })
+    }
+
+    macro_rules! test_expression {
+        ($end: expr, $ret: expr, $r: ident: $expr: expr => $ir: expr) => { {
+            let mut ctx = FunctionCtx {
+                end: $end,
+                ret: $ret,
+                instrs: vec![]
+            };
+            let r = ctx.build_expression(&$expr);
+            let $r = match r {
+                IRValue::Ref(r) | IRValue::Var(r)=> r,
+                _ => unreachable!()
+            };
+            let target: Vec<IRInstr> = $ir;
+
+            let res_str = format!("{:?}", ctx.instrs);
+            let target_str = format!("{:?}", target);
+            assert_eq!(res_str, target_str);
+        } };
+    }
+
+    macro_rules! get_label {
+        ($ir_instr: expr) => {
+            match $ir_instr {
+                IRInstr::Block(l) => l,
+                _ => panic!("invalid ir_instr: expected block, found {:?}", $ir_instr)
+            }
+        };
+    }
+
+    #[test]
+    fn binary_to_ir() {
+        let i32_ty = RefId::new();
+
+        test_expression! {
+            RefId::new(), RefId::new(), r_ref: 
+            Span::dummied(Expression {
+                expr: Expr::Binary(
+                    Span::dummied(BinaryOp::Add), 
+                    Box::new(literal(i32_ty, 3)),
+                    Box::new(literal(i32_ty, 5))
+                ),
+                ty: i32_ty,
+            }) =>
+            vec![
+                IRInstr::BinaryOp(r_ref, BinaryOp::Add, IRValue::Literal(3), IRValue::Literal(5))
+            ]
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "not yet implemented: unary expr")]
+    fn unary_to_ir() {
+        let i32_ty = RefId::new();
+
+        test_expression! {
+            RefId::new(), RefId::new(), _r_ref: 
+            Span::dummied(Expression {
+                expr: Expr::Unary(
+                    Span::dummied(UnaryOp::Minus), 
+                    Box::new(literal(i32_ty, 3)),
+                ),
+                ty: i32_ty,
+            }) =>
+            vec![]
+        }
+    }
+
+    #[test]
+    fn variable_to_ir() {
+        let i32_ty = RefId::new();
+        let var = RefId::new();
+
+        let expr = Span::dummied(Expression {
+            expr: Expr::Variable(Span::dummied(var)),
+            ty: i32_ty,
+        });
+
+        let mut ctx = FunctionCtx {
+            end: RefId::new(),
+            ret: RefId::new(),
+            instrs: vec![]
+        };
+        let r = ctx.build_expression(&expr);
+        
+        let r_ref = match r {
+            IRValue::Ref(r) | IRValue::Var(r)=> r,
+            _ => unreachable!()
+        };
+
+        assert_eq!(var, r_ref)
+    }
+
+    #[test]
+    fn function_call_to_ir() {
+        let i32_ty = RefId::new();
+        let unit_ty = RefId::new();
+        let func = RefId::new();
+
+        test_expression! {
+            RefId::new(), RefId::new(), r_ref: 
+            Span::dummied(Expression {
+                expr: Expr::FunctionCall(
+                    Span::dummied(func), 
+                    vec![literal(i32_ty, 55)]
+                ),
+                ty: unit_ty,
+            }) =>
+            vec![
+                IRInstr::Call(r_ref, func, vec![IRValue::Literal(55)])
+            ]
+        }
+    }
+
+    #[test]
+    fn if_to_ir() {
+        let bool_ty = RefId::new();
+        let i32_ty = RefId::new();
+
+        let expr = Span::dummied(Expression {
+            expr: Expr::If(
+                vec![(literal(bool_ty, 1), literal(i32_ty, 0))], 
+                Box::new(literal(i32_ty, 99))
+            ),
+            ty: i32_ty,
+        });
+
+        let mut ctx = FunctionCtx {
+            end: RefId::new(),
+            ret: RefId::new(),
+            instrs: vec![]
+        };
+        let r = ctx.build_expression(&expr);
+
+        let then_block = get_label!(ctx.instrs[1]);
+        let else_block = get_label!(ctx.instrs[3]);
+        let continue_block = get_label!(ctx.instrs[5]);
+
+        let r_ref = match r {
+            IRValue::Ref(r) | IRValue::Var(r)=> r,
+            _ => unreachable!()
+        };
+
+        let target = vec![
+            IRInstr::Branch(IRValue::Literal(1), then_block, else_block),
+            IRInstr::Block(then_block),
+            IRInstr::Goto(continue_block),
+            IRInstr::Block(else_block),
+            IRInstr::Goto(continue_block),
+            IRInstr::Block(continue_block),
+            IRInstr::Phi(r_ref, vec![(IRValue::Literal(0), then_block), (IRValue::Literal(99), else_block)])
+        ];
+    
+        let res_str = format!("{:?}", ctx.instrs);
+        let target_str = format!("{:?}", target);
+        assert_eq!(res_str, target_str);
+    }
+
+    #[test]
+    fn block_to_ir() {
+        let unit_ty = RefId::new();
+
+        let expr = Span::dummied(Expression {
+            expr: Expr::Block(vec![], None),
+            ty: unit_ty,
+        });
+
+        let old_ret = RefId::new();
+
+        let mut ctx = FunctionCtx {
+            end: RefId::new(),
+            ret: old_ret,
+            instrs: vec![]
+        };
+        let r = ctx.build_expression(&expr);
+
+        let ret_block = get_label!(ctx.instrs[1]);
+        let end_block = get_label!(ctx.instrs[3]);
+
+        let target = vec![
+            IRInstr::Goto(end_block),
+            IRInstr::Block(ret_block),
+            IRInstr::Goto(old_ret),
+            IRInstr::Block(end_block),
+        ];
+    
+        let res_str = format!("{:?}", ctx.instrs);
+        let target_str = format!("{:?}", target);
+        assert_eq!(res_str, target_str);
     }
 }
