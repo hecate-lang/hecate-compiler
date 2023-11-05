@@ -41,8 +41,7 @@ impl<'a> Iterator for Lexer<'a> {
                 }
                 Some(ch) => {
                     if ch.is_whitespace() {
-                        self.iter.next();
-                        self.current_pos += 1;
+                        self.advance();
                     } else {
                         break;
                     }
@@ -89,18 +88,21 @@ impl<'a> Lexer<'a> {
         // as the function is only called when the next character is matched against
         // is_alphabetic() or the underscore char '_' we can move the current_pos of the lexer
         let token_start = self.current_pos;
-        self.iter.next();
-        self.current_pos += 1;
+        self.advance();
 
         while let Some(ch) = self.iter.peek() {
             if ch.is_alphanumeric() || ch == &'_' {
-                self.iter.next();
-                self.current_pos += 1;
+                self.advance();
             } else {
                 return token_start;
             }
         }
 
         token_start
+    }
+
+    fn advance(&mut self) {
+        self.iter.next();
+        self.current_pos += 1;
     }
 }
