@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use hecate_ir_gen::ir::IRModule;
 use hecate_llvm_gen::{LLVMModuleCtx, OptimizationLevel};
 use hecate_resolver::{ResolvedType, ResolvedRef, RefId, FullyResolved, ModData};
-use hecate_util::{ast::{Module, Function, Expression, Expr, Statement}, span::{Spanned, Span}};
+use hecate_util::{ast::{Module, Function, Expression, Expr, Statement}, span::{Span}};
 
 fn main() {
     let unit_ty = RefId::<ResolvedType>::new();

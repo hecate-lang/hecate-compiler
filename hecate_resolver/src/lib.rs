@@ -1,6 +1,6 @@
-use std::{marker::PhantomData, fmt::{Debug, Display}, collections::HashMap, cell::Ref, iter, hash::Hash};
+use std::{marker::PhantomData, fmt::{Debug, Display}, collections::HashMap, hash::Hash};
 
-use hecate_util::{span::Spanned, ast::AstInfo};
+use hecate_util::{ast::AstInfo};
 use rand::random;
 
 pub struct RefId<T> {

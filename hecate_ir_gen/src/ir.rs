@@ -1,7 +1,7 @@
-use std::{collections::HashMap, cell::Ref, fmt::Display, sync::Mutex};
+use std::{collections::HashMap, fmt::Display, sync::Mutex};
 
 use hecate_resolver::{RefId, ResolvedRef};
-use hecate_util::{span::Spanned, ast::BinaryOp};
+use hecate_util::{ast::BinaryOp};
 use once_cell::sync::Lazy;
 
 #[derive(Debug)]
@@ -51,7 +51,7 @@ impl<'a> Display for IRModule<'a> {
             unsafe { VALUE_NAME_COUNTER = 0; }
             format!("fun {} [{}]:\n{}", self.references[&f.name],
             f.args.iter().map(|v| format!("@{v}")).collect::<Vec<_>>().join(", "),
-            f.instrs.iter().map(|i| i.stringify(&self)).collect::<Vec<_>>().join("\n")
+            f.instrs.iter().map(|i| i.stringify(self)).collect::<Vec<_>>().join("\n")
         )}).collect::<Vec<_>>().join("\n\n"))
     }
 }

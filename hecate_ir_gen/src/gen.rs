@@ -43,7 +43,7 @@ impl<'a> IRModule<'a> {
         ctx.instrs.push(IRInstr::Return(r));
     
         IRFunction {
-            args: function.args.iter().map(|(v, t)| **v).collect(),
+            args: function.args.iter().map(|(v, _t)| **v).collect(),
             name: *function.name,
             instrs: ctx.instrs
         }
@@ -91,7 +91,7 @@ impl FunctionCtx {
         IRValue::Ref(r)
     }
 
-    fn build_return(&mut self, expr: &Spanned<Expression<FullyResolved>>) -> IRValue {
+    fn build_return(&mut self, _expr: &Spanned<Expression<FullyResolved>>) -> IRValue {
         self.instrs.push(IRInstr::Goto(self.ret));
         IRValue::None
     }
@@ -133,7 +133,7 @@ impl FunctionCtx {
         IRValue::Ref(r)
     }
 
-    fn build_unary(&mut self, op: &Spanned<UnaryOp>, expr: &Spanned<Expression<FullyResolved>>) -> IRValue {
+    fn build_unary(&mut self, _op: &Spanned<UnaryOp>, expr: &Spanned<Expression<FullyResolved>>) -> IRValue {
         self.build_expression(expr);
         todo!("unary expr");
         IRValue::None
@@ -158,7 +158,7 @@ impl FunctionCtx {
         };
     }
 
-    fn build_let_assign(&mut self, var: &Spanned<RefId<ResolvedRef>>, ty: &Spanned<RefId<ResolvedType>>, expr: &Spanned<Expression<FullyResolved>>) {
+    fn build_let_assign(&mut self, var: &Spanned<RefId<ResolvedRef>>, _ty: &Spanned<RefId<ResolvedType>>, expr: &Spanned<Expression<FullyResolved>>) {
         let v = self.build_expression(expr);
         self.instrs.push(IRInstr::Alloca(**var));
         self.instrs.push(IRInstr::Store(**var, v));
