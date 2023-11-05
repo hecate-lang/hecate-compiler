@@ -71,8 +71,9 @@ impl<'a> Iterator for Lexer<'a> {
                 self.collect_literal();
             }
             _ => {
-                // This should not happen
-                return None;
+                // Should be handled by parser
+                token_type = Token::Undefined;
+                self.collect_erroneous();
             }
         }
 
@@ -115,6 +116,18 @@ impl<'a> Lexer<'a> {
                 self.advance();
             } else {
                 break;
+            }
+        }
+    }
+
+    fn collect_erroneous(&mut self) {
+        self.advance();
+
+        while let Some(ch) = self.iter.peek() {
+            if ch.is_whitespace() {
+                break;
+            } else {
+                self.advance();
             }
         }
     }

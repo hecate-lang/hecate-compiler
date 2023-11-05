@@ -9,4 +9,5 @@ pub enum Token {
     Literal,
     Delimiter,
     EOF,
+    Undefined,
 }
