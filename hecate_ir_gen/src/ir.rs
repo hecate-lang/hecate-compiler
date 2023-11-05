@@ -105,7 +105,7 @@ impl IRInstr {
         match self {
             IRInstr::Block(l) => format!("  {}:", name_for_ref(l)),
             IRInstr::Goto(l) => format!("    goto {}", name_for_ref(l)),
-            IRInstr::Phi(r, v) => format!("    @{} = psi [{}]", name_for_ref(r), v.iter().map(|(v, l)| format!("{v} from {}", name_for_ref(l))).collect::<Vec<_>>().join(", ")),
+            IRInstr::Phi(r, v) => format!("    @{} = phi [{}]", name_for_ref(r), v.iter().map(|(v, l)| format!("{v} from {}", name_for_ref(l))).collect::<Vec<_>>().join(", ")),
             IRInstr::Branch(c, i, e) => format!("    branch {c} ? {} : {}", name_for_ref(i), name_for_ref(e)),
             IRInstr::Call(r, c, v) => format!("    @{} = call {} [{}]", name_for_ref(r), module.references[c], v.iter().map(|v| format!("{v}")).collect::<Vec<_>>().join(", ")),
             IRInstr::Return(v) => format!("    return {v}"),
