@@ -40,7 +40,7 @@ pub enum IRInstr {
     Return(IRValue),
     Alloca(RefId<ResolvedRef>),
     Store(RefId<ResolvedRef>, IRValue),
-    Load(RefId<ResolvedRef>, IRValue),
+    Load(RefId<ResolvedRef>, RefId<ResolvedRef>),
     BinaryOp(RefId<ResolvedRef>, BinaryOp, IRValue, IRValue)
 }
 
@@ -110,8 +110,8 @@ impl IRInstr {
             IRInstr::Call(r, c, v) => format!("    @{} = call {} [{}]", name_for_ref(r), module.references[c], v.iter().map(|v| format!("{v}")).collect::<Vec<_>>().join(", ")),
             IRInstr::Return(v) => format!("    return {v}"),
             IRInstr::Alloca(r) => format!("    @{} = alloca <todo>", name_for_ref(r)),
-            IRInstr::Store(r, v) => format!("    store {r} = {v}"),
-            IRInstr::Load(r, v) => format!("    @{} = load {v}", name_for_ref(r)),
+            IRInstr::Store(p, v) => format!("    store {} = {v}", name_for_ref(p)),
+            IRInstr::Load(r, p) => format!("    @{} = load {}", name_for_ref(r), name_for_ref(p)),
             IRInstr::BinaryOp(r, op, a, b) => format!("    @{} = {op:?} {a}, {b}", name_for_ref(r))
         }
     }

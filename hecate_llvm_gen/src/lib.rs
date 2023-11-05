@@ -74,6 +74,7 @@ impl LLVMModuleCtx {
         ctx
     }
 
+    // temporary function to be replaced once apporpiate types and linking to c functions is implemented
     fn generate_builtins(&mut self, references: &HashMap<RefId<ResolvedRef>, &str>) {
         let printf_t = unsafe { LLVMInt32Type() };
         let printf_fn_type = unsafe { LLVMFunctionType(printf_t, [ LLVMPointerType(LLVMArrayType(LLVMInt8Type(), 0), 0)].as_mut_ptr(), 1, true as LLVMBool)};
@@ -94,7 +95,7 @@ impl LLVMModuleCtx {
                 id = Some(k)
             }
         }
-        let id = id.unwrap();
+        let id = id.expect("print_int not defined in resolved references");
         self.llvm_functions.insert(*id, LLVMFunction { 
             llvm_func: print_int, 
             llvm_ty: print_int_fn_type 
@@ -142,7 +143,7 @@ impl LLVMModuleCtx {
                 IRInstr::Return(v) => function.build_return(self.builder, v),
                 IRInstr::Alloca(r) => function.build_alloca(self.builder, r),
                 IRInstr::Store(p, v) => function.build_store(self.builder, p, v),
-                IRInstr::Load(_, _) => todo!(),
+                IRInstr::Load(r, p) => function.build_load(self.builder, r, p),
                 IRInstr::BinaryOp(r, op, a, b) => function.build_binary_op(self.builder, r, op, a, b),
             }
         }
@@ -216,7 +217,8 @@ impl LLVMModuleCtx {
 
             LLVMDisposeTargetMachine(target_machine);
         }
-        let r = std::process::Command::new("gcc").arg(obj_path.to_str().unwrap()).arg("-o").arg(exe_path.to_str().unwrap()).output().unwrap();
+        // TODO: replace with clang-sys (static linking) so no runtime deps are needed
+        let r = std::process::Command::new("gcc").arg(obj_path.to_str().unwrap()).arg("-o").arg(exe_path.to_str().unwrap()).output().expect("failed to compile with gcc");
         println!("{}", String::from_utf8_lossy(&r.stdout[..]));
         println!("{}", String::from_utf8_lossy(&r.stderr[..]));
     }
@@ -325,6 +327,13 @@ impl FunctionBuilder {
     fn build_store(&mut self, builder: *mut LLVMBuilder, p: &RefId<ResolvedRef>, v: &IRValue) {
         unsafe {
             LLVMBuildStore(builder, self.llvm_val(builder, v), self.values[p]);
+        }
+    }
+
+    fn build_load(&mut self, builder: *mut LLVMBuilder, p: &RefId<ResolvedRef>, r: &RefId<ResolvedRef>) {
+        unsafe {
+            let res = LLVMBuildLoad2(builder, LLVMInt32Type(), self.values[p], c_str_ptr!());
+            self.values.insert(*r, res);
         }
     }
 }

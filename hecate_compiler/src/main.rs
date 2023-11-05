@@ -85,5 +85,5 @@ fn main() {
     let ir = IRModule::generate(&module);
     std::fs::write("out.ir", ir.to_string()).unwrap();
     let llvm = LLVMModuleCtx::generate(&ir);
-    llvm.build("out", OptimizationLevel::Aggressive);//
+    llvm.build("out", OptimizationLevel::None);
 }
