@@ -1,6 +1,8 @@
+use crate::{
+    token::{Operator::*, Token},
+    Lexer,
+};
 use hecate_util::span::{self, Source::String, Span};
-
-use crate::{token::Token, Lexer};
 
 #[test]
 fn one_ident() {
@@ -96,4 +98,34 @@ fn literal_and_identifier() {
     let spanned = lexer.next().unwrap();
     assert_eq!(spanned.inner, Token::EOF);
     assert_eq!(spanned.loc.as_str(), None);
+}
+
+#[test]
+fn operators() {
+    let input = "+= + ! != - -=";
+    let mut lexer = Lexer::new(input);
+    let spanned = lexer.next().unwrap();
+    let test_span = Span::from_source(String, input, 0, 2);
+    assert_eq!(spanned.inner, Token::Operator(AddAssign));
+    assert_eq!(spanned.loc.as_str(), test_span.as_str());
+    let spanned = lexer.next().unwrap();
+    let test_span = Span::from_source(String, input, 3, 4);
+    assert_eq!(spanned.inner, Token::Operator(Plus));
+    assert_eq!(spanned.loc.as_str(), test_span.as_str());
+    let spanned = lexer.next().unwrap();
+    let test_span = Span::from_source(String, input, 5, 6);
+    assert_eq!(spanned.inner, Token::Operator(Not));
+    assert_eq!(spanned.loc.as_str(), test_span.as_str());
+    let spanned = lexer.next().unwrap();
+    let test_span = Span::from_source(String, input, 7, 9);
+    assert_eq!(spanned.inner, Token::Operator(Ne));
+    assert_eq!(spanned.loc.as_str(), test_span.as_str());
+    let spanned = lexer.next().unwrap();
+    let test_span = Span::from_source(String, input, 10, 11);
+    assert_eq!(spanned.inner, Token::Operator(Minus));
+    assert_eq!(spanned.loc.as_str(), test_span.as_str());
+    let spanned = lexer.next().unwrap();
+    let test_span = Span::from_source(String, input, 12, 14);
+    assert_eq!(spanned.inner, Token::Operator(SubAssign));
+    assert_eq!(spanned.loc.as_str(), test_span.as_str());
 }

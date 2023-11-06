@@ -1,3 +1,4 @@
+use crate::token::Operator::*;
 use crate::token::Token;
 use hecate_util::span::{Source, Span, Spanned};
 use std::{
@@ -70,6 +71,62 @@ impl<'a> Iterator for Lexer<'a> {
                 token_type = Token::Literal;
                 self.collect_literal();
             }
+            &'!' => {
+                if self.followed_by_equalsign() {
+                    token_type = Token::Operator(Ne);
+                } else {
+                    token_type = Token::Operator(Not);
+                }
+            }
+            &'+' => {
+                if self.followed_by_equalsign() {
+                    token_type = Token::Operator(AddAssign);
+                } else {
+                    token_type = Token::Operator(Plus);
+                }
+            }
+            &'-' => {
+                if self.followed_by_equalsign() {
+                    token_type = Token::Operator(SubAssign);
+                } else {
+                    token_type = Token::Operator(Minus);
+                }
+            }
+            &'*' => {
+                if self.followed_by_equalsign() {
+                    token_type = Token::Operator(MulAssign);
+                } else {
+                    token_type = Token::Operator(Mul);
+                }
+            }
+            &'/' => {
+                if self.followed_by_equalsign() {
+                    token_type = Token::Operator(DivAssign);
+                } else {
+                    token_type = Token::Operator(Div);
+                }
+            }
+            &'>' => {
+                if self.followed_by_equalsign() {
+                    token_type = Token::Operator(Ge);
+                } else {
+                    token_type = Token::Operator(Gt);
+                }
+            }
+            &'<' => {
+                if self.followed_by_equalsign() {
+                    token_type = Token::Operator(Le);
+                } else {
+                    token_type = Token::Operator(Lt);
+                }
+            }
+            &'=' => {
+                if self.followed_by_equalsign() {
+                    token_type = Token::Operator(Eq);
+                } else {
+                    token_type = Token::Assignment;
+                }
+            }
             _ => {
                 // Should be handled by parser
                 token_type = Token::Undefined;
@@ -95,8 +152,6 @@ impl<'a> Iterator for Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     fn collect_identifier(&mut self) {
-        // as the function is only called when the next character is matched against
-        // is_alphabetic() or the underscore char '_' we can move the current_pos of the lexer
         self.advance();
 
         while let Some(ch) = self.iter.peek() {
@@ -130,5 +185,16 @@ impl<'a> Lexer<'a> {
                 self.advance();
             }
         }
+    }
+
+    fn followed_by_equalsign(&mut self) -> bool {
+        self.advance();
+        if let Some(ch) = self.iter.peek() {
+            if ch == &'=' {
+                self.advance();
+                return true;
+            }
+        }
+        false
     }
 }
