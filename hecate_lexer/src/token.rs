@@ -7,6 +7,7 @@ pub enum Token {
     Delimiter,
     EOF,
     Undefined,
+    ReturnType,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -22,6 +23,8 @@ pub enum Operator {
     Le,
     Eq,
     Ne,
+    And,
+    Or,
     AddAssign,
     SubAssign,
     MulAssign,

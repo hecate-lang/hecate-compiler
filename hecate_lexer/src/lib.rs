@@ -46,7 +46,7 @@ impl<'a> Iterator for Lexer<'a> {
                     });
                 }
                 Some(ch) => {
-                    if ch.is_whitespace() {
+                    if ch.is_whitespace() || ch == &'\n' {
                         self.advance();
                     } else {
                         break;
@@ -88,6 +88,9 @@ impl<'a> Iterator for Lexer<'a> {
             &'-' => {
                 if self.followed_by_equalsign() {
                     token_type = Token::Operator(SubAssign);
+                } else if self.iter.peek().unwrap() == &'>' {
+                    self.advance();
+                    token_type = Token::ReturnType;
                 } else {
                     token_type = Token::Operator(Minus);
                 }
@@ -126,6 +129,48 @@ impl<'a> Iterator for Lexer<'a> {
                 } else {
                     token_type = Token::Assignment;
                 }
+            }
+            &'&' => {
+                if self.iter.peek().unwrap() == &'&' {
+                    self.advance();
+                    token_type = Token::Operator(And);
+                } else {
+                    token_type = Token::Undefined;
+                    self.collect_erroneous();
+                }
+            }
+            &'|' => {
+                if self.iter.peek().unwrap() == &'|' {
+                    self.advance();
+                    token_type = Token::Operator(Or);
+                } else {
+                    token_type = Token::Undefined;
+                    self.collect_erroneous();
+                }
+            }
+            &'(' => {
+                self.advance();
+                token_type = Token::Delimiter;
+            }
+            &')' => {
+                self.advance();
+                token_type = Token::Delimiter;
+            }
+            &'{' => {
+                self.advance();
+                token_type = Token::Delimiter;
+            }
+            &'}' => {
+                self.advance();
+                token_type = Token::Delimiter;
+            }
+            &':' => {
+                self.advance();
+                token_type = Token::Delimiter;
+            }
+            &';' => {
+                self.advance();
+                token_type = Token::Delimiter;
             }
             _ => {
                 // Should be handled by parser
