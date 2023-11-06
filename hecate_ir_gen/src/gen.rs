@@ -351,7 +351,7 @@ pub mod tests {
             ret: old_ret,
             instrs: vec![]
         };
-        let r = ctx.build_expression(&expr);
+        let _ = ctx.build_expression(&expr);
 
         let ret_block = get_label!(ctx.instrs[1]);
         let end_block = get_label!(ctx.instrs[3]);
