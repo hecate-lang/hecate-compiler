@@ -148,27 +148,7 @@ impl<'a> Iterator for Lexer<'a> {
                     self.collect_erroneous();
                 }
             }
-            &'(' => {
-                self.advance();
-                token_type = Token::Delimiter;
-            }
-            &')' => {
-                self.advance();
-                token_type = Token::Delimiter;
-            }
-            &'{' => {
-                self.advance();
-                token_type = Token::Delimiter;
-            }
-            &'}' => {
-                self.advance();
-                token_type = Token::Delimiter;
-            }
-            &':' => {
-                self.advance();
-                token_type = Token::Delimiter;
-            }
-            &';' => {
+            &'(' | &')' | &'{' | &'}' | &':' | &';' => {
                 self.advance();
                 token_type = Token::Delimiter;
             }
