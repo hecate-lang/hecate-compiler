@@ -11,14 +11,14 @@ pub mod token;
 #[cfg(test)]
 mod tests;
 
-struct Lexer<'a> {
+pub struct Lexer<'a> {
     input: &'a str,
     iter: Peekable<Chars<'a>>,
     current_pos: usize,
 }
 
 impl<'a> Lexer<'a> {
-    fn new(input: &'a str) -> Lexer<'_> {
+    pub fn new(input: &'a str) -> Lexer<'_> {
         let iter = input.chars().peekable();
         Lexer {
             input,
