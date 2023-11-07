@@ -196,7 +196,7 @@ impl LLVMModuleCtx {
                     OptimizationLevel::Default => LLVMCodeGenOptLevel::LLVMCodeGenLevelDefault,
                     OptimizationLevel::Aggressive => LLVMCodeGenOptLevel::LLVMCodeGenLevelAggressive,
                 },
-                LLVMRelocMode::LLVMRelocDefault,
+                LLVMRelocMode::LLVMRelocPIC,
                 LLVMCodeModel::LLVMCodeModelDefault,
             );
             if target_machine.is_null() {
@@ -218,7 +218,7 @@ impl LLVMModuleCtx {
             LLVMDisposeTargetMachine(target_machine);
         }
         // TODO: replace with clang-sys (static linking) so no runtime deps are needed
-        let r = std::process::Command::new("gcc").arg(obj_path.to_str().unwrap()).arg("-o").arg(exe_path.to_str().unwrap()).output().expect("failed to compile with gcc");
+        let r = std::process::Command::new("gcc").arg(obj_path.to_str().unwrap()).arg("-o").arg(exe_path.to_str().unwrap()).arg("-fpie").output().expect("failed to compile with gcc");
         println!("{}", String::from_utf8_lossy(&r.stdout[..]));
         println!("{}", String::from_utf8_lossy(&r.stderr[..]));
     }
