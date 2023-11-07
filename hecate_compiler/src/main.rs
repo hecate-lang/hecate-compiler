@@ -26,9 +26,7 @@ fn main() {
     references.insert(module, "test_module");
 
 
-
     let module = Module::<FullyResolved> {
-
         data: ModData {
             references
         },
