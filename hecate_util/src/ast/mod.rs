@@ -30,7 +30,7 @@ pub enum Statement<'a, I: AstInfo> {
     Let(Spanned<'a, I::Ident>, Spanned<'a, I::Type>, Spanned<'a, Expression<'a, I>>)
 }
 
-pub type Argument<'a, I> = (Spanned<'a, <I as AstInfo>::Type>, Spanned<'a, <I as AstInfo>::Ident>);
+pub type Argument<'a, I> = (Spanned<'a, <I as AstInfo>::Ident>, Spanned<'a, <I as AstInfo>::Type>);
 
 pub struct Function<'a, I: AstInfo> {
     pub name: Spanned<'a, I::Ident>,
@@ -46,8 +46,8 @@ pub enum Expr<'a, I: AstInfo> {
     Variable(Spanned<'a, I::Ident>),
     FunctionCall(Spanned<'a, I::Ident>, Vec<SExpression<'a, I>>),
     #[allow(clippy::type_complexity)]
-    If(Vec<(Box<SExpression<'a, I>>, Box<SExpression<'a, I>>)>, Box<SExpression<'a, I>>),
-    Block(Vec<Box<SStatement<'a, I>>>, Option<Box<SExpression<'a, I>>>),
+    If(Vec<(SExpression<'a, I>, SExpression<'a, I>)>, Box<SExpression<'a, I>>),
+    Block(Vec<SStatement<'a, I>>, Option<Box<SExpression<'a, I>>>),
     Return(Box<SExpression<'a, I>>),
     Literal(i32)
 }
@@ -55,7 +55,7 @@ pub enum Expr<'a, I: AstInfo> {
 
 pub type SBinaryOp<'a> = Spanned<'a, BinaryOp>;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
 pub enum BinaryOp {
     Add,
     Sub,
@@ -71,7 +71,7 @@ pub enum BinaryOp {
 
 pub type SUnaryOp<'a> = Spanned<'a, UnaryOp>;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum UnaryOp {
     Not,
     Minus,

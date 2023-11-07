@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 hecate_parser = { version = "0.1.0", path = "../hecate_parser" }
 hecate_util = { version = "0.1.0", path = "../hecate_util" }
-rand = "*"
+rand = "0.8.5"

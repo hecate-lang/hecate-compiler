@@ -1,0 +1,9 @@
+[package]
+name = "hecate_ir_gen"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hecate_resolver = { version = "0.1.0", path = "../hecate_resolver" }
+hecate_util = { version = "0.1.0", path = "../hecate_util" }
+once_cell = "1.18.0"
