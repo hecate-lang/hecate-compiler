@@ -44,7 +44,7 @@ impl<'a> Iterator for Lexer<'a> {
                         inner: Token::EOF,
                         loc: Span::Span {
                             source: Source::String,
-                            content: &self.input,
+                            content: self.input,
                             start: self.current_pos,
                             end: self.current_pos,
                         },
@@ -175,7 +175,7 @@ impl<'a> Iterator for Lexer<'a> {
 
         let span = Span::Span {
             source: Source::String,
-            content: &self.input,
+            content: self.input,
             start: token_start,
             end: self.current_pos,
         };
