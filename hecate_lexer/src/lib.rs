@@ -42,11 +42,16 @@ impl<'a> Iterator for Lexer<'a> {
                 None => {
                     return Option::Some(Spanned {
                         inner: Token::EOF,
-                        loc: Span::Generated,
+                        loc: Span::Span {
+                            source: Source::String,
+                            content: &self.input,
+                            start: self.current_pos,
+                            end: self.current_pos,
+                        },
                     });
                 }
                 Some(ch) => {
-                    if ch.is_whitespace() || ch == &'\n' {
+                    if ch.is_whitespace() {
                         self.advance();
                     } else {
                         break;
@@ -56,108 +61,117 @@ impl<'a> Iterator for Lexer<'a> {
         }
 
         let token_start = self.current_pos;
-        let token_type;
 
-        match self.iter.peek().unwrap() {
+        let token = match self.iter.peek().unwrap() {
             token if token.is_alphabetic() => {
-                token_type = Token::Identifier;
-                self.collect_identifier();
+                self.advance_by_identifier();
+                Token::Identifier
             }
             &'_' => {
-                token_type = Token::Identifier;
-                self.collect_identifier();
+                self.advance_by_identifier();
+                Token::Identifier
             }
             token if token.is_numeric() => {
-                token_type = Token::Literal;
-                self.collect_literal();
+                self.advance_by_literal();
+                Token::Literal
             }
             &'!' => {
                 if self.followed_by_equalsign() {
-                    token_type = Token::Operator(Ne);
+                    self.advance();
+                    Token::Operator(Ne)
                 } else {
-                    token_type = Token::Operator(Not);
+                    Token::Operator(Not)
                 }
             }
             &'+' => {
                 if self.followed_by_equalsign() {
-                    token_type = Token::Operator(AddAssign);
+                    self.advance();
+                    Token::Operator(AddAssign)
                 } else {
-                    token_type = Token::Operator(Plus);
+                    Token::Operator(Plus)
                 }
             }
             &'-' => {
                 if self.followed_by_equalsign() {
-                    token_type = Token::Operator(SubAssign);
+                    self.advance();
+                    Token::Operator(SubAssign)
                 } else if self.iter.peek().unwrap() == &'>' {
                     self.advance();
-                    token_type = Token::ReturnType;
+                    Token::ReturnType
                 } else {
-                    token_type = Token::Operator(Minus);
+                    Token::Operator(Minus)
                 }
             }
             &'*' => {
                 if self.followed_by_equalsign() {
-                    token_type = Token::Operator(MulAssign);
+                    self.advance();
+                    Token::Operator(MulAssign)
                 } else {
-                    token_type = Token::Operator(Mul);
+                    Token::Operator(Mul)
                 }
             }
             &'/' => {
                 if self.followed_by_equalsign() {
-                    token_type = Token::Operator(DivAssign);
+                    self.advance();
+                    Token::Operator(DivAssign)
                 } else {
-                    token_type = Token::Operator(Div);
+                    Token::Operator(Div)
                 }
             }
             &'>' => {
                 if self.followed_by_equalsign() {
-                    token_type = Token::Operator(Ge);
+                    self.advance();
+                    Token::Operator(Ge)
                 } else {
-                    token_type = Token::Operator(Gt);
+                    Token::Operator(Gt)
                 }
             }
             &'<' => {
                 if self.followed_by_equalsign() {
-                    token_type = Token::Operator(Le);
+                    self.advance();
+                    Token::Operator(Le)
                 } else {
-                    token_type = Token::Operator(Lt);
+                    Token::Operator(Lt)
                 }
             }
             &'=' => {
                 if self.followed_by_equalsign() {
-                    token_type = Token::Operator(Eq);
+                    self.advance();
+                    Token::Operator(Eq)
                 } else {
-                    token_type = Token::Assignment;
+                    Token::Assignment
                 }
             }
             &'&' => {
+                self.advance();
                 if self.iter.peek().unwrap() == &'&' {
                     self.advance();
-                    token_type = Token::Operator(And);
+                    Token::Operator(And)
                 } else {
-                    token_type = Token::Undefined;
-                    self.collect_erroneous();
+                    self.advance_by_erroneous();
+                    Token::Undefined
                 }
             }
             &'|' => {
+                self.advance();
                 if self.iter.peek().unwrap() == &'|' {
                     self.advance();
-                    token_type = Token::Operator(Or);
+                    Token::Operator(Or)
                 } else {
-                    token_type = Token::Undefined;
-                    self.collect_erroneous();
+                    self.advance_by_erroneous();
+                    Token::Undefined
                 }
             }
             &'(' | &')' | &'{' | &'}' | &':' | &';' => {
                 self.advance();
-                token_type = Token::Delimiter;
+                Token::Delimiter
             }
             _ => {
                 // Should be handled by parser
-                token_type = Token::Undefined;
-                self.collect_erroneous();
+                self.advance_by_erroneous();
+                Token::Undefined
             }
-        }
+        };
 
         let span = Span::Span {
             source: Source::String,
@@ -167,7 +181,7 @@ impl<'a> Iterator for Lexer<'a> {
         };
 
         let token = Spanned {
-            inner: token_type,
+            inner: token,
             loc: span,
         };
 
@@ -176,7 +190,7 @@ impl<'a> Iterator for Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    fn collect_identifier(&mut self) {
+    fn advance_by_identifier(&mut self) {
         self.advance();
 
         while let Some(ch) = self.iter.peek() {
@@ -188,11 +202,11 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn collect_literal(&mut self) {
+    fn advance_by_literal(&mut self) {
         self.advance();
 
         while let Some(ch) = self.iter.peek() {
-            if ch.is_alphanumeric() || ch == &'.' {
+            if ch.is_alphanumeric() || ch == &'.' || ch == &'_' {
                 self.advance();
             } else {
                 break;
@@ -200,7 +214,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn collect_erroneous(&mut self) {
+    fn advance_by_erroneous(&mut self) {
         self.advance();
 
         while let Some(ch) = self.iter.peek() {
@@ -216,7 +230,6 @@ impl<'a> Lexer<'a> {
         self.advance();
         if let Some(ch) = self.iter.peek() {
             if ch == &'=' {
-                self.advance();
                 return true;
             }
         }
