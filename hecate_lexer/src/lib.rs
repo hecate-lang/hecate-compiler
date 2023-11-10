@@ -37,15 +37,14 @@ impl<'a> Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    fn next(&mut self) -> Option<Spanned<Token<'a>>> {
-
+    fn next(&mut self) -> Spanned<Token<'a>> {
         let control_characters = "(){}<>;:+-*/=!&|";
 
         // skip all white spaces
         loop {
             match self.iter.peek() {
                 None => {
-                    return Option::Some(Spanned {
+                    return Spanned {
                         inner: Token::EOF,
                         loc: Span::Span {
                             source: Source::String,
@@ -53,7 +52,7 @@ impl<'a> Lexer<'a> {
                             start: self.current_pos,
                             end: self.current_pos,
                         },
-                    });
+                    };
                 }
                 Some(ch) => {
                     if ch.is_whitespace() {
@@ -97,12 +96,10 @@ impl<'a> Lexer<'a> {
             end: self.current_pos,
         };
 
-        let token = Spanned {
+        Spanned {
             inner: token,
             loc: span,
-        };
-
-        Option::Some(token)
+        }
     }
 }
 
@@ -135,10 +132,10 @@ impl<'a> Lexer<'a> {
         self.collect_next_char();
 
         while let Some(ch) = self.iter.peek() {
-            if ch.is_whitespace() {
-                break;
-            } else {
+            if !ch.is_whitespace() {
                 self.collect_next_char();
+            } else {
+                break;
             }
         }
     }
@@ -147,7 +144,7 @@ impl<'a> Lexer<'a> {
 impl<'a> Drop for Lexer<'a> {
     fn drop(&mut self) {
         unsafe {
-            let _ = Box::from_raw(self.input as *const str as *mut str);
+            let _ = Box::from_raw((self.input as *const str).cast_mut());
         }
     }
 }
