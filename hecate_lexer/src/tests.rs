@@ -148,19 +148,19 @@ fn empty_func() {
     assert_eq!(spanned.loc.as_str(), expected_span.as_str());
     let spanned = lexer.next().unwrap();
     let expected_span = Span::from_source(String, &sanatized, 9, 10);
-    assert_eq!(spanned.inner, Token::Delimiter('('));
+    assert_eq!(spanned.inner, Token::ControlCharacter('('));
     assert_eq!(spanned.loc.as_str(), expected_span.as_str());
     let spanned = lexer.next().unwrap();
     let expected_span = Span::from_source(String, &sanatized, 10, 11);
-    assert_eq!(spanned.inner, Token::Delimiter(')'));
+    assert_eq!(spanned.inner, Token::ControlCharacter(')'));
     assert_eq!(spanned.loc.as_str(), expected_span.as_str());
     let spanned = lexer.next().unwrap();
     let expected_span = Span::from_source(String, &sanatized, 12, 13);
-    assert_eq!(spanned.inner, Token::Delimiter('{'));
+    assert_eq!(spanned.inner, Token::ControlCharacter('{'));
     assert_eq!(spanned.loc.as_str(), expected_span.as_str());
     let spanned = lexer.next().unwrap();
     let expected_span = Span::from_source(String, &sanatized, 15, 16);
-    assert_eq!(spanned.inner, Token::Delimiter('}'));
+    assert_eq!(spanned.inner, Token::ControlCharacter('}'));
     assert_eq!(spanned.loc.as_str(), expected_span.as_str());
 }
 
@@ -180,15 +180,15 @@ fn binary_ops() {
     assert_eq!(spanned.loc.as_str(), expected_span.as_str());
     let spanned = lexer.next().unwrap();
     let expected_span = Span::from_source(String, &sanatized, 9, 10);
-    assert_eq!(spanned.inner, Token::Delimiter('('));
+    assert_eq!(spanned.inner, Token::ControlCharacter('('));
     assert_eq!(spanned.loc.as_str(), expected_span.as_str());
     let spanned = lexer.next().unwrap();
     let expected_span = Span::from_source(String, &sanatized, 10, 11);
-    assert_eq!(spanned.inner, Token::Delimiter(')'));
+    assert_eq!(spanned.inner, Token::ControlCharacter(')'));
     assert_eq!(spanned.loc.as_str(), expected_span.as_str());
     let spanned = lexer.next().unwrap();
     let expected_span = Span::from_source(String, &sanatized, 12, 13);
-    assert_eq!(spanned.inner, Token::Delimiter('{'));
+    assert_eq!(spanned.inner, Token::ControlCharacter('{'));
     assert_eq!(spanned.loc.as_str(), expected_span.as_str());
     let spanned = lexer.next().unwrap();
     let expected_span = Span::from_source(String, &sanatized, 18, 29);
@@ -196,7 +196,7 @@ fn binary_ops() {
     assert_eq!(spanned.loc.as_str(), expected_span.as_str());
     let spanned = lexer.next().unwrap();
     let expected_span = Span::from_source(String, &sanatized, 29, 30);
-    assert_eq!(spanned.inner, Token::Delimiter('('));
+    assert_eq!(spanned.inner, Token::ControlCharacter('('));
     assert_eq!(spanned.loc.as_str(), expected_span.as_str());
     let spanned = lexer.next().unwrap();
     let expected_span = Span::from_source(String, &sanatized, 30, 31);
@@ -212,10 +212,10 @@ fn binary_ops() {
     assert_eq!(spanned.loc.as_str(), expected_span.as_str());
     let spanned = lexer.next().unwrap();
     let expected_span = Span::from_source(String, &sanatized, 35, 36);
-    assert_eq!(spanned.inner, Token::Delimiter(')'));
+    assert_eq!(spanned.inner, Token::ControlCharacter(')'));
     assert_eq!(spanned.loc.as_str(), expected_span.as_str());
     let spanned = lexer.next().unwrap();
     let expected_span = Span::from_source(String, &sanatized, 36, 37);
-    assert_eq!(spanned.inner, Token::Delimiter(';'));
+    assert_eq!(spanned.inner, Token::ControlCharacter(';'));
     assert_eq!(spanned.loc.as_str(), expected_span.as_str());
 }

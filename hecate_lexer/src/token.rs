@@ -3,7 +3,6 @@ pub enum Token<'a> {
     Identifier(&'a str),
     ControlCharacter(char),
     Literal(&'a str),
-    Delimiter(char),
     EOF,
     Undefined(&'a str),
 }

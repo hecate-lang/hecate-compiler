@@ -1,8 +1,9 @@
+#![feature(pattern)]
 use crate::token::Token;
 use hecate_util::span::{Source, Span, Spanned};
 use std::{
     iter::{Iterator, Peekable},
-    str::Chars,
+    str::{pattern::Pattern, Chars},
 };
 
 pub mod token;
@@ -37,6 +38,9 @@ impl<'a> Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     fn next(&mut self) -> Option<Spanned<Token<'a>>> {
+
+        let control_characters = "(){}<>;:+-*/=!&|";
+
         // skip all white spaces
         loop {
             match self.iter.peek() {
@@ -76,10 +80,9 @@ impl<'a> Lexer<'a> {
                 self.advance_by_literal();
                 Token::Literal(&self.input[token_start..self.current_pos])
             }
-            &'!' | &'+' | &'-' | &'*' | &'/' | &'<' | &'>' | &'=' | &'&' | &'|' => {
+            control_char if control_char.is_contained_in(control_characters) => {
                 Token::ControlCharacter(self.collect_next_char())
             }
-            &'(' | &')' | &'{' | &'}' | &':' | &';' => Token::Delimiter(self.collect_next_char()),
             _ => {
                 // Should be handled by parser
                 self.advance_by_erroneous();
