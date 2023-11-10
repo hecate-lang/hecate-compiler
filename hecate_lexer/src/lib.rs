@@ -68,7 +68,7 @@ impl<'a> Lexer<'a> {
         let token_start = self.current_pos;
 
         let token = match self.iter.peek().unwrap() {
-            token if token.is_alphabetic() => {
+            ident if ident.is_alphabetic() => {
                 self.advance_by_identifier();
                 Token::Identifier(&self.input[token_start..self.current_pos])
             }
@@ -76,7 +76,7 @@ impl<'a> Lexer<'a> {
                 self.advance_by_identifier();
                 Token::Identifier(&self.input[token_start..self.current_pos])
             }
-            token if token.is_numeric() => {
+            lit if lit.is_numeric() => {
                 self.advance_by_literal();
                 Token::Literal(&self.input[token_start..self.current_pos])
             }
