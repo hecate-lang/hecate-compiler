@@ -129,7 +129,7 @@ fn operators() {
     assert_eq!(spanned.inner, Token::ControlCharacter('!'));
     assert_eq!(spanned.loc.as_str(), expected_span.as_str());
     let spanned = lexer.next().unwrap();
-    let expected_span = Span::from_source(String, input, 8, 9);
+    let _expected_span = Span::from_source(String, input, 8, 9);
     assert_eq!(spanned.inner, Token::ControlCharacter('='));
 }
 

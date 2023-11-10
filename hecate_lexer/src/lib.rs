@@ -18,12 +18,12 @@ pub struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     pub fn new(input: &'a str) -> Self {
-        let input = input.replace("\r", "");
+        let input = input.replace('\r', "");
         let input = Box::new(input);
         let input: &'static str = Box::leak(input);
         let iter = input.chars().peekable();
         Lexer {
-            input: &input,
+            input,
             iter,
             current_pos: 0,
         }
@@ -45,7 +45,7 @@ impl<'a> Lexer<'a> {
                         inner: Token::EOF,
                         loc: Span::Span {
                             source: Source::String,
-                            content: &self.input,
+                            content: self.input,
                             start: self.current_pos,
                             end: self.current_pos,
                         },
@@ -89,7 +89,7 @@ impl<'a> Lexer<'a> {
 
         let span = Span::Span {
             source: Source::String,
-            content: &self.input,
+            content: self.input,
             start: token_start,
             end: self.current_pos,
         };
@@ -144,7 +144,7 @@ impl<'a> Lexer<'a> {
 impl<'a> Drop for Lexer<'a> {
     fn drop(&mut self) {
         unsafe {
-            Box::from_raw(self.input as *const str as *mut str);
+            let _ = Box::from_raw(self.input as *const str as *mut str);
         }
     }
 }
