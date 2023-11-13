@@ -28,9 +28,8 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn collect_next_char(&mut self) -> char {
-        self.current_pos += 1;
-        self.iter.next().unwrap()
+    pub fn next_token(&mut self) -> <Self as Iterator>::Item {
+        self.next().unwrap()
     }
 }
 
@@ -101,6 +100,11 @@ impl<'a> Iterator for Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
+    fn collect_next_char(&mut self) -> char {
+        self.current_pos += 1;
+        self.iter.next().unwrap()
+    }
+
     fn advance_by_identifier(&mut self) {
         self.collect_next_char();
 
