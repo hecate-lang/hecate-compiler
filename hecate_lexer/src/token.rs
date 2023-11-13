@@ -1,9 +1,8 @@
-use hecate_util::ast::{BinaryOp, UnaryOp};
-
-pub enum Token {
-    Identifier,
-    BinaryOp(BinaryOp),
-    UnaryOp(UnaryOp),
-    AssignmentOp,
-    Delimiter,
+#[derive(Debug, PartialEq, Eq)]
+pub enum Token<'a> {
+    Identifier(&'a str),
+    ControlChar(char, bool),
+    Literal(&'a str),
+    EOF,
+    Undefined(&'a str),
 }
