@@ -1,6 +1,7 @@
 <div align="center">
     <h1>Hecate Compiler</h1>
-
+<img src="https://github.com/hecate-lang/.github/blob/main/hecate_banner_upscaled_10.png" alt="" style="width: 80%; image-rendering: pixelated">
+    
 [![Rust](https://img.shields.io/github/actions/workflow/status/hecate-lang/hecate-compiler/rust.yml?style=flat-square&label=tests)](https://github.com/hecate-lang/hecate-compiler/actions/workflows/rust.yml)
 [![License](https://img.shields.io/github/license/hecate-lang/hecate-compiler?style=flat-square)](https://github.com/hecate-lang/hecate-compiler/blob/main/LICENSE)
 ![Platform](https://img.shields.io/badge/platform-linux%20|%20windows-blueviolet?style=flat-square)
