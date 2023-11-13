@@ -17,7 +17,7 @@ jobs:
     - name: Install Clippy
       run: rustup component add clippy
     - name: Run Clippy
-      run: cargo clippy -- -W clippy::pedantic
+      run: cargo clippy -- -W clippy::all -D warnings -A unused
   test:
     runs-on: ubuntu-latest
     steps:
