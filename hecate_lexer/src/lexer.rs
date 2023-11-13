@@ -34,13 +34,14 @@ impl<'a> Lexer<'a> {
     }
 }
 
-impl<'a> Lexer<'a> {
-    pub fn next(&mut self) -> Spanned<Token<'a>> {
+impl<'a> Iterator for Lexer<'a> {
+    type Item = Spanned<'a, Token<'a>>;
+    fn next(&mut self) -> Option<Self::Item> {
         // skip all white spaces
         loop {
             match self.iter.peek() {
                 None => {
-                    return Spanned {
+                    return Some(Spanned {
                         inner: Token::EOF,
                         loc: Span::Span {
                             source: Source::String,
@@ -48,7 +49,7 @@ impl<'a> Lexer<'a> {
                             start: self.current_pos,
                             end: self.current_pos,
                         },
-                    };
+                    });
                 }
                 Some(ch) => {
                     if ch.is_whitespace() {
@@ -92,10 +93,10 @@ impl<'a> Lexer<'a> {
             end: self.current_pos,
         };
 
-        Spanned {
+        Some(Spanned {
             inner: token,
             loc: span,
-        }
+        })
     }
 }
 
@@ -137,10 +138,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn is_followed_by_whitespace(&mut self) -> bool {
-        match self.iter.peek() {
-            Some(whitespace) if whitespace.is_whitespace() => return true,
-            _ => return false,
-        }
+        matches!(self.iter.peek(), Some(whitespace) if whitespace.is_whitespace())
     }
 }
 
