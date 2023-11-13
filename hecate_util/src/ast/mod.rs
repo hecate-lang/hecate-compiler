@@ -71,7 +71,7 @@ pub enum BinaryOp {
 
 pub type SUnaryOp<'a> = Spanned<'a, UnaryOp>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum UnaryOp {
     Not,
     Minus,

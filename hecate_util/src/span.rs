@@ -6,6 +6,15 @@ pub struct Spanned<'a, T> {
     loc: Span<'a>
 }
 
+impl<'a, T> Spanned<'a, T> {
+    pub fn use_span_for<V>(&self, v: V) -> Spanned<V> {
+        Spanned { 
+            inner: v, 
+            loc: self.loc
+        }
+    }
+}
+
 impl<'a, T> Deref for Spanned<'a, T> {
     type Target = T;
 
