@@ -1,7 +1,10 @@
 use std::{marker::PhantomData, fmt::{Debug, Display}, collections::HashMap, hash::Hash};
 
-use hecate_util::{ast::AstInfo};
+use hecate_util::ast::AstInfo;
 use rand::random;
+
+pub mod infer_types;
+pub mod resolve_names;
 
 pub struct RefId<T> {
     pub id: u64,
@@ -58,10 +61,12 @@ impl<T> Default for RefId<T> {
     }
 }
 
+#[derive(Debug)]
 pub struct FullyResolved<'a>(std::marker::PhantomData<&'a()>);
 
+#[derive(Debug)]
 pub struct ModData<'a> {
-    pub references: HashMap<RefId<ResolvedRef>, &'a str>
+    pub references: HashMap<RefId<ResolvedRef>, &'a str>,
 }
 
 impl<'a> AstInfo for FullyResolved<'a> {

@@ -82,7 +82,7 @@ impl LLVMModuleCtx {
         
         let print_int_t = unsafe { LLVMVoidType() };
         let print_int_fn_type = unsafe { LLVMFunctionType(print_int_t, [ LLVMInt32Type() ].as_mut_ptr(), 1, true as LLVMBool)};
-        let print_int = unsafe { LLVMAddFunction(self.module, c_str_ptr!("print_int"), print_int_fn_type) };
+        let print_int = unsafe { LLVMAddFunction(self.module, c_str_ptr!("__print_i32"), print_int_fn_type) };
         let entry = unsafe { LLVMAppendBasicBlock(print_int, c_str_ptr!("entry")) };
         unsafe { LLVMPositionBuilderAtEnd(self.builder, entry); }
         let value = unsafe { LLVMGetParam(print_int, 0) };
@@ -91,7 +91,7 @@ impl LLVMModuleCtx {
         unsafe { LLVMBuildRetVoid(self.builder); }
         let mut id = None;
         for (k, v) in references {
-            if *v == "print_int" {
+            if *v == "__print_i32" {
                 id = Some(k)
             }
         }
@@ -139,7 +139,7 @@ impl LLVMModuleCtx {
                 IRInstr::Goto(b) => function.build_goto(self.builder, b),
                 IRInstr::Phi(_, _) => (),
                 IRInstr::Branch(v, then_block, else_block) => function.build_branch(self.builder, v, then_block, else_block),
-                IRInstr::Call(r, f, args) => function.build_call(self.builder, r, f, args,  &self.llvm_functions[f]),
+                IRInstr::Call(r, f, args) => function.build_call(self.builder, r, f, args,  &self.llvm_functions    	[f]),
                 IRInstr::Return(v) => function.build_return(self.builder, v),
                 IRInstr::Alloca(r) => function.build_alloca(self.builder, r),
                 IRInstr::Store(p, v) => function.build_store(self.builder, p, v),
@@ -221,6 +221,7 @@ impl LLVMModuleCtx {
         let r = std::process::Command::new("gcc").arg(obj_path.to_str().unwrap()).arg("-o").arg(exe_path.to_str().unwrap()).arg("-fpie").output().expect("failed to compile with gcc");
         println!("{}", String::from_utf8_lossy(&r.stdout[..]));
         println!("{}", String::from_utf8_lossy(&r.stderr[..]));
+        println!("finished!\nIgnore the segfault below:");
     }
 }
 

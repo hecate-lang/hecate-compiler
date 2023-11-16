@@ -8,6 +8,7 @@ pub trait AstInfo {
     type ModuleData;
 }
 
+#[derive(Debug)]
 pub struct Module<'a, I: AstInfo> {
     pub name: Spanned<'a, I::Ident>,
     pub functions: Vec<Spanned<'a, Function<'a, I>>>,
@@ -32,6 +33,7 @@ pub enum Statement<'a, I: AstInfo> {
 
 pub type Argument<'a, I> = (Spanned<'a, <I as AstInfo>::Ident>, Spanned<'a, <I as AstInfo>::Type>);
 
+#[derive(Debug)]
 pub struct Function<'a, I: AstInfo> {
     pub name: Spanned<'a, I::Ident>,
     pub args: Vec<Argument<'a, I>>,
