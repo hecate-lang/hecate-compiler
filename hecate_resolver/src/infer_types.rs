@@ -1,7 +1,7 @@
-use hecate_parser::types::GenericType;
-use hecate_util::{ast::{Module, AstInfo, Function, Expression, Expr, Statement, BinaryOp, UnaryOp}, span::{Span, Spanned}};
 
-use crate::{FullyResolved, RefId, ResolvedType, ModData, ResolvedRef, resolve_names::NamesResolved};
+use hecate_util::{ast::{Module}};
+
+use crate::{FullyResolved, resolve_names::NamesResolved};
 
 pub fn infer_types<'a>(module: &Module<'a, NamesResolved<'a>>) -> Result<Module<'a, FullyResolved<'a>>, ()> {
     // TODO: resolve some types

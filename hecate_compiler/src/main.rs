@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+
 
 use hecate_ir_gen::ir::IRModule;
 use hecate_llvm_gen::{LLVMModuleCtx, OptimizationLevel};
 use hecate_parser::types::GenericType;
-use hecate_resolver::{ResolvedType, ResolvedRef, RefId, FullyResolved, ModData, infer_types::{infer_types}, resolve_names::{resolve_names, RawSymbols}};
+use hecate_resolver::{infer_types::{infer_types}, resolve_names::{resolve_names, RawSymbols}};
 use hecate_util::{ast::{Module, Function, Expression, Expr, Statement}, span::{Span}};
 
 fn main() {

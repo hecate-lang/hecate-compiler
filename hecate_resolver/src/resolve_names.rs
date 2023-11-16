@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use hecate_parser::types::GenericType;
 use hecate_util::{ast::{Module, AstInfo, Function, Expression, Expr, Statement, BinaryOp, UnaryOp}, span::{Spanned, Span}};
 
-use crate::{FullyResolved, RefId, ResolvedType, ModData, ResolvedRef};
+use crate::{RefId, ResolvedType, ModData, ResolvedRef};
 
 struct Scope<'a> {
     variables: HashMap<&'a str, RefId<ResolvedRef>>
@@ -159,7 +159,7 @@ impl<'a> NameResolver<'a> {
         let args = args.iter().map(|expression| 
             self.resolve_expression(expression)
         ).collect::<Result<Vec<_>, _>>()?;
-        Ok(Expr::FunctionCall(func.use_span_for(self.get_var(&func)?), args))
+        Ok(Expr::FunctionCall(func.use_span_for(self.get_var(func)?), args))
     }
 
 
