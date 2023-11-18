@@ -4,23 +4,17 @@ use std::{
 };
 use InternalResult::*;
 
-#[derive(Debug)]
-pub enum HecateError {
-    PlaceholderError(String),
-}
+pub trait HecateError: ToString {}
 
-#[derive(Debug)]
-pub enum HecateWarning {
-    PlaceholderWarning(String),
-}
+pub trait HecateWarning: ToString {}
 
 pub struct Unwrapped<T>(T);
 
 pub struct Wrapped<T>(T);
 
 pub struct ReportMeta {
-    warnings: Vec<HecateWarning>,
-    errors: Vec<HecateError>,
+    warnings: Vec<Box<dyn HecateWarning>>,
+    errors: Vec<Box<dyn HecateError>>,
 }
 
 impl ReportMeta {
@@ -31,12 +25,12 @@ impl ReportMeta {
         }
     }
 
-    pub fn add_error(&mut self, error: HecateError) -> &mut Self {
+    pub fn add_error(&mut self, error: Box<dyn HecateError>) -> &mut Self {
         self.errors.push(error);
         self
     }
 
-    pub fn add_warning(&mut self, warning: HecateWarning) -> &mut Self {
+    pub fn add_warning(&mut self, warning: Box<dyn HecateWarning>) -> &mut Self {
         self.warnings.push(warning);
         self
     }
@@ -56,8 +50,8 @@ impl ReportMeta {
 
 enum InternalResult<T> {
     Success(T),
-    Fail(Vec<HecateError>, T),
-    Fatal(Vec<HecateError>),
+    Fail(Vec<Box<dyn HecateError>>, T),
+    Fatal(Vec<Box<dyn HecateError>>),
 }
 
 impl<T> InternalResult<T> {
@@ -70,7 +64,7 @@ impl<T> InternalResult<T> {
 }
 
 pub struct HecateReport<T> {
-    warnings: Vec<HecateWarning>,
+    warnings: Vec<Box<dyn HecateWarning>>,
     internal_result: InternalResult<T>,
 }
 
@@ -79,7 +73,7 @@ impl<T> HecateReport<T> {
         self.internal_result.is_fatal()
     }
 
-    pub fn warnings(&self) -> &Vec<HecateWarning> {
+    pub fn warnings(&self) -> &Vec<Box<dyn HecateWarning>> {
         &self.warnings
     }
 
@@ -100,7 +94,7 @@ impl<T> HecateReport<Wrapped<T>> {
         ReportMeta::new().pack(value)
     }
 
-    pub fn result(&self) -> Result<&T, &Vec<HecateError>> {
+    pub fn result(&self) -> Result<&T, &Vec<Box<dyn HecateError>>> {
         match &self.internal_result {
             Success(value) => Ok(&value.0),
             Fatal(errors) | Fail(errors, _) => Err(errors),
@@ -199,22 +193,22 @@ impl<T> Try for HecateReport<Unwrapped<T>> {
 
 #[macro_export]
 macro_rules! hecate_warning {
-    ($meta:ident, $($arg:tt)*) => {
-        $meta.add_warning(hecate_util::error::HecateWarning::PlaceholderWarning(format!($($arg)*)));
+    ($meta:ident, $warning:expr) => {
+        $meta.add_warning(Box::new($warning));
     };
 }
 
 #[macro_export]
 macro_rules! hecate_error {
-    ($meta:ident, $($arg:tt)*) => {
-        $meta.add_error(hecate_util::error::HecateError::PlaceholderError(format!($($arg)*)));
+    ($meta:ident, $error:expr) => {
+        $meta.add_error(Box::new($error));
     };
 }
 
 #[macro_export(local_inner_macros)]
 macro_rules! hecate_fatal_error {
-    ($meta:ident, $($arg:tt)*) => {
-        hecate_error!($meta, $($arg)*);
+    ($meta:ident, $fatal_error:expr) => {
+        hecate_error!($meta, $fatal_error);
         $meta.as_fatal::<()>()?;
         std::unreachable!()
     };
