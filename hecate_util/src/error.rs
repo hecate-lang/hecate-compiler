@@ -2,7 +2,7 @@ use std::{
     convert::Infallible,
     ops::{ControlFlow, FromResidual, Try},
 };
-use InternalHecateResult::*;
+use InternalResult::*;
 
 #[derive(Debug)]
 pub enum HecateError {
@@ -14,19 +14,21 @@ pub enum HecateWarning {
     PlaceholderWarning(String),
 }
 
-enum InternalHecateResult<T> {
-    Success(T),
-    Fail(Vec<HecateError>, Option<T>),
-}
+pub struct Unwrapped<T>(T);
 
-pub struct HecateMeta {
+pub struct Wrapped<T>(T);
+
+pub struct ReportMeta {
     warnings: Vec<HecateWarning>,
     errors: Vec<HecateError>,
 }
 
-impl HecateMeta {
+impl ReportMeta {
     pub fn new() -> Self {
-        Self::from_raw(Vec::new(), Vec::new())
+        ReportMeta {
+            warnings: Vec::new(),
+            errors: Vec::new(),
+        }
     }
 
     pub fn add_error(&mut self, error: HecateError) -> &mut Self {
@@ -39,153 +41,158 @@ impl HecateMeta {
         self
     }
 
-    pub fn join(&mut self, mut report_data: HecateMeta) {
-        self.warnings.append(&mut report_data.warnings);
-        self.errors.append(&mut report_data.errors);
+    pub fn pack<T>(self, value: T) -> HecateReport<Wrapped<T>> {
+        HecateReport::from_meta(self, Wrapped(value))
     }
 
-    pub fn pack<T>(self, value: T) -> HecateReport<T> {
-        HecateReport::from_data(HecateReportData::from_meta(self, value))
+    pub fn as_fatal<T>(self) -> HecateReport<Unwrapped<Infallible>> {
+        HecateReport::<Unwrapped<T>>::as_fatal(self)
     }
 
-    pub fn to_fatal_error<T>(self) -> HecateReport<Infallible> {
-        HecateReport::<T>::from_meta_as_fatal(self)
-    }
-
-    fn from_raw(warnings: Vec<HecateWarning>, errors: Vec<HecateError>) -> Self {
-        HecateMeta {
-            warnings: warnings,
-            errors: errors,
-        }
+    fn pack_unwrapped<T>(self, value: T) -> HecateReport<Unwrapped<T>> {
+        HecateReport::from_meta(self, Unwrapped(value))
     }
 }
 
-pub struct HecateReportData<T> {
-    value: T,
-    warnings: Vec<HecateWarning>,
-    errors: Vec<HecateError>,
+enum InternalResult<T> {
+    Success(T),
+    Fail(Vec<HecateError>, T),
+    Fatal(Vec<HecateError>),
 }
 
-impl<T> HecateReportData<T> {
-    pub fn unpack(self, meta: &mut HecateMeta) -> T {
-        meta.join(HecateMeta::from_raw(self.warnings, self.errors));
-        self.value
-    }
-
-    fn from_meta(meta: HecateMeta, value: T) -> Self {
-        HecateReportData {
-            value: value,
-            warnings: meta.warnings,
-            errors: meta.errors,
+impl<T> InternalResult<T> {
+    pub fn is_fatal(&self) -> bool {
+        match self {
+            Fatal(_) => true,
+            _ => false,
         }
     }
 }
 
 pub struct HecateReport<T> {
     warnings: Vec<HecateWarning>,
-    internal_result: InternalHecateResult<T>,
+    internal_result: InternalResult<T>,
 }
 
 impl<T> HecateReport<T> {
-    pub fn pure(value: T) -> Self {
-        HecateMeta::new().pack(value)
-    }
-
-    pub fn result(&self) -> Result<&T, &Vec<HecateError>> {
-        match &self.internal_result {
-            Success(value) => Ok(value),
-            Fail(errors, _) => Err(errors),
-        }
-    }
-
-    pub fn is_fatal_error(&self) -> bool {
-        match &self.internal_result {
-            Fail(_, None) => true,
-            _ => false,
-        }
+    pub fn is_fatal(&self) -> bool {
+        self.internal_result.is_fatal()
     }
 
     pub fn warnings(&self) -> &Vec<HecateWarning> {
         &self.warnings
     }
 
-    fn to_data(self) -> HecateReportData<T> {
-        match self.internal_result {
-            Fail(errors, Some(value)) => HecateReportData {
-                value: value,
-                warnings: self.warnings,
-                errors: errors,
+    fn from_meta(meta: ReportMeta, value: T) -> Self {
+        HecateReport {
+            warnings: meta.warnings,
+            internal_result: if meta.errors.is_empty() {
+                Success(value)
+            } else {
+                Fail(meta.errors, value)
             },
-            Success(value) => HecateReportData {
-                value: value,
-                warnings: self.warnings,
-                errors: Vec::new(),
-            },
-            _ => unreachable!(),
+        }
+    }
+}
+
+impl<T> HecateReport<Wrapped<T>> {
+    pub fn pure(value: T) -> Self {
+        ReportMeta::new().pack(value)
+    }
+
+    pub fn result(&self) -> Result<&T, &Vec<HecateError>> {
+        match &self.internal_result {
+            Success(value) => Ok(&value.0),
+            Fatal(errors) | Fail(errors, _) => Err(errors),
         }
     }
 
-    fn to_residual(self) -> <HecateReport<T> as Try>::Residual {
+    pub fn unpack(mut self, meta: &mut ReportMeta) -> HecateReport<Unwrapped<T>> {
+        match self.internal_result {
+            Fatal(mut errors) => {
+                self.warnings.append(&mut meta.warnings);
+                errors.append(&mut meta.errors);
+                HecateReport {
+                    warnings: self.warnings,
+                    internal_result: Fatal(errors),
+                }
+            }
+            Fail(mut errors, value) => {
+                meta.errors.append(&mut errors);
+                meta.warnings.append(&mut self.warnings);
+                HecateReport::pure_unwrapped(value.0)
+            }
+            Success(value) => {
+                meta.warnings.append(&mut self.warnings);
+                HecateReport::pure_unwrapped(value.0)
+            }
+        }
+    }
+}
+
+impl<T> HecateReport<Unwrapped<T>> {
+    fn pure_unwrapped(value: T) -> Self {
+        ReportMeta::new().pack_unwrapped(value)
+    }
+
+    fn to_residual(self) -> <HecateReport<Unwrapped<T>> as Try>::Residual {
         match self.internal_result {
             Success(_) => HecateReport {
                 warnings: self.warnings,
-                internal_result: Fail(Vec::new(), None),
+                internal_result: Fatal(Vec::new()),
             },
-            Fail(errors, _) => HecateReport {
+            Fatal(errors) | Fail(errors, _) => HecateReport {
                 warnings: self.warnings,
-                internal_result: Fail(errors, None),
+                internal_result: Fatal(errors),
             },
         }
     }
 
-    fn from_data(record_data: HecateReportData<T>) -> Self {
-        if record_data.errors.is_empty() {
-            HecateReport {
-                warnings: record_data.warnings,
-                internal_result: Success(record_data.value),
-            }
-        } else {
-            HecateReport {
-                warnings: record_data.warnings,
-                internal_result: Fail(record_data.errors, Some(record_data.value)),
-            }
-        }
-    }
-
-    fn from_meta_as_fatal(meta: HecateMeta) -> HecateReport<Infallible> {
+    fn as_fatal(meta: ReportMeta) -> HecateReport<Unwrapped<Infallible>> {
         HecateReport {
             warnings: meta.warnings,
-            internal_result: Fail(meta.errors, None),
+            internal_result: Fatal(meta.errors),
         }
     }
 }
 
-impl<T> FromResidual for HecateReport<T> {
+impl<T> FromResidual for HecateReport<Unwrapped<T>> {
     fn from_residual(residual: <Self as Try>::Residual) -> Self {
         match residual.internal_result {
-            Fail(error, _) => HecateReport {
+            Fatal(error) => HecateReport {
                 warnings: residual.warnings,
-                internal_result: Fail(error, None),
+                internal_result: Fatal(error),
             },
             _ => unreachable!(),
         }
     }
 }
 
-impl<T> Try for HecateReport<T> {
-    type Output = HecateReportData<T>;
+impl<T> FromResidual<<HecateReport<Unwrapped<T>> as Try>::Residual> for HecateReport<Wrapped<T>> {
+    fn from_residual(residual: <HecateReport<Unwrapped<T>> as Try>::Residual) -> Self {
+        match residual.internal_result {
+            Fatal(error) => HecateReport {
+                warnings: residual.warnings,
+                internal_result: Fatal(error),
+            },
+            _ => unreachable!(),
+        }
+    }
+}
 
-    type Residual = HecateReport<Infallible>;
+impl<T> Try for HecateReport<Unwrapped<T>> {
+    type Output = T;
+
+    type Residual = HecateReport<Wrapped<Infallible>>;
 
     fn from_output(output: Self::Output) -> Self {
-        HecateReport::from_data(output)
+        HecateReport::pure_unwrapped(output)
     }
 
     fn branch(self) -> ControlFlow<Self::Residual, Self::Output> {
-        if self.is_fatal_error() {
-            ControlFlow::Break(self.to_residual())
-        } else {
-            ControlFlow::Continue(self.to_data())
+        match self.internal_result {
+            Fail(_, value) | Success(value) => ControlFlow::Continue(value.0),
+            _ => ControlFlow::Break(self.to_residual()),
         }
     }
 }
@@ -208,7 +215,7 @@ macro_rules! hecate_error {
 macro_rules! hecate_fatal_error {
     ($meta:ident, $($arg:tt)*) => {
         hecate_error!($meta, $($arg)*);
-        $meta.to_fatal_error::<()>()?;
+        $meta.as_fatal::<()>()?;
         std::unreachable!()
     };
 }
