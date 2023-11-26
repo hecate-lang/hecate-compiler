@@ -1,10 +1,58 @@
+use colored::Colorize;
 use std::{
     convert::Infallible,
     ops::{ControlFlow, FromResidual, Try},
 };
 use InternalResult::*;
 
+use crate::span::{Span, Spanned};
+
 pub trait HecateError: ToString {}
+
+pub trait MessageFormat {
+    fn format_message(&self) -> String;
+}
+
+impl<'span> MessageFormat for SpannedBox<'span, dyn HecateError> {
+    fn format_message(&self) -> String {
+        into_context(
+            &Span::dummy(),
+            format!(
+                "{}: {}",
+                "error".red().bold(),
+                self.to_string().white().bold()
+            ),
+        )
+    }
+}
+
+impl<'span> MessageFormat for SpannedBox<'span, dyn HecateWarning> {
+    fn format_message(&self) -> String {
+        into_context(
+            &Span::dummy(),
+            format!(
+                "{}: {}",
+                "warning".yellow().bold(),
+                self.to_string().white().bold()
+            ),
+        )
+    }
+}
+
+fn into_context(context: &Span, message: String) -> String {
+    // Example representation (prototype)
+    /*
+    [file:line:column] warning: warning message
+        |
+    101 | let A = 1 + 2;
+        |     ^- rename to "a"
+    102 | /* some other code here */
+    103 | let some_var = 10;
+    */
+    todo!()
+}
+
+type SpannedBox<'a, T> = Spanned<'a, Box<T>>;
 
 pub trait HecateWarning: ToString {}
 
@@ -12,12 +60,12 @@ pub struct Unwrapped<T>(T);
 
 pub struct Wrapped<T>(T);
 
-pub struct ReportMeta {
-    warnings: Vec<Box<dyn HecateWarning>>,
-    errors: Vec<Box<dyn HecateError>>,
+pub struct ReportMeta<'span> {
+    warnings: Vec<SpannedBox<'span, dyn HecateWarning>>,
+    errors: Vec<SpannedBox<'span, dyn HecateError>>,
 }
 
-impl ReportMeta {
+impl<'span> ReportMeta<'span> {
     pub fn new() -> Self {
         ReportMeta {
             warnings: Vec::new(),
@@ -25,36 +73,42 @@ impl ReportMeta {
         }
     }
 
-    pub fn add_error(&mut self, error: Box<dyn HecateError>) -> &mut Self {
+    pub fn add_error<'err: 'span>(
+        &mut self,
+        error: SpannedBox<'err, dyn HecateError>,
+    ) -> &mut Self {
         self.errors.push(error);
         self
     }
 
-    pub fn add_warning(&mut self, warning: Box<dyn HecateWarning>) -> &mut Self {
+    pub fn add_warning<'warn: 'span>(
+        &mut self,
+        warning: SpannedBox<'warn, dyn HecateWarning>,
+    ) -> &mut Self {
         self.warnings.push(warning);
         self
     }
 
-    pub fn pack<T>(self, value: T) -> HecateReport<Wrapped<T>> {
+    pub fn pack<T>(self, value: T) -> HecateReport<'span, Wrapped<T>> {
         HecateReport::from_meta(self, Wrapped(value))
     }
 
-    pub fn as_fatal<T>(self) -> HecateReport<Unwrapped<Infallible>> {
+    pub fn as_fatal<T>(self) -> HecateReport<'span, Unwrapped<Infallible>> {
         HecateReport::<Unwrapped<T>>::as_fatal(self)
     }
 
-    fn pack_unwrapped<T>(self, value: T) -> HecateReport<Unwrapped<T>> {
+    fn pack_unwrapped<T>(self, value: T) -> HecateReport<'span, Unwrapped<T>> {
         HecateReport::from_meta(self, Unwrapped(value))
     }
 }
 
-enum InternalResult<T> {
+enum InternalResult<'span, T> {
     Success(T),
-    Fail(Vec<Box<dyn HecateError>>, T),
-    Fatal(Vec<Box<dyn HecateError>>),
+    Fail(Vec<SpannedBox<'span, dyn HecateError>>, T),
+    Fatal(Vec<SpannedBox<'span, dyn HecateError>>),
 }
 
-impl<T> InternalResult<T> {
+impl<'span, T> InternalResult<'span, T> {
     pub fn is_fatal(&self) -> bool {
         match self {
             Fatal(_) => true,
@@ -63,21 +117,21 @@ impl<T> InternalResult<T> {
     }
 }
 
-pub struct HecateReport<T> {
-    warnings: Vec<Box<dyn HecateWarning>>,
-    internal_result: InternalResult<T>,
+pub struct HecateReport<'span, T> {
+    warnings: Vec<SpannedBox<'span, dyn HecateWarning>>,
+    internal_result: InternalResult<'span, T>,
 }
 
-impl<T> HecateReport<T> {
+impl<'span, T> HecateReport<'span, T> {
     pub fn is_fatal(&self) -> bool {
         self.internal_result.is_fatal()
     }
 
-    pub fn warnings(&self) -> &Vec<Box<dyn HecateWarning>> {
+    pub fn warnings(&self) -> &Vec<SpannedBox<'span, dyn HecateWarning>> {
         &self.warnings
     }
 
-    fn from_meta(meta: ReportMeta, value: T) -> Self {
+    fn from_meta(meta: ReportMeta<'span>, value: T) -> Self {
         HecateReport {
             warnings: meta.warnings,
             internal_result: if meta.errors.is_empty() {
@@ -89,19 +143,19 @@ impl<T> HecateReport<T> {
     }
 }
 
-impl<T> HecateReport<Wrapped<T>> {
+impl<'span, T> HecateReport<'span, Wrapped<T>> {
     pub fn pure(value: T) -> Self {
         ReportMeta::new().pack(value)
     }
 
-    pub fn result(&self) -> Result<&T, &Vec<Box<dyn HecateError>>> {
+    pub fn result(&self) -> Result<&T, &Vec<SpannedBox<'span, dyn HecateError>>> {
         match &self.internal_result {
             Success(value) => Ok(&value.0),
             Fatal(errors) | Fail(errors, _) => Err(errors),
         }
     }
 
-    pub fn unpack(mut self, meta: &mut ReportMeta) -> HecateReport<Unwrapped<T>> {
+    pub fn unpack(mut self, meta: &mut ReportMeta<'span>) -> HecateReport<'span, Unwrapped<T>> {
         match self.internal_result {
             Fatal(mut errors) => {
                 self.warnings.append(&mut meta.warnings);
@@ -124,12 +178,12 @@ impl<T> HecateReport<Wrapped<T>> {
     }
 }
 
-impl<T> HecateReport<Unwrapped<T>> {
+impl<'span, T> HecateReport<'span, Unwrapped<T>> {
     fn pure_unwrapped(value: T) -> Self {
         ReportMeta::new().pack_unwrapped(value)
     }
 
-    fn to_residual(self) -> <HecateReport<Unwrapped<T>> as Try>::Residual {
+    fn to_residual(self) -> <HecateReport<'span, Unwrapped<T>> as Try>::Residual {
         match self.internal_result {
             Success(_) => HecateReport {
                 warnings: self.warnings,
@@ -150,7 +204,7 @@ impl<T> HecateReport<Unwrapped<T>> {
     }
 }
 
-impl<T> FromResidual for HecateReport<Unwrapped<T>> {
+impl<'span, T> FromResidual for HecateReport<'span, Unwrapped<T>> {
     fn from_residual(residual: <Self as Try>::Residual) -> Self {
         match residual.internal_result {
             Fatal(error) => HecateReport {
@@ -162,8 +216,10 @@ impl<T> FromResidual for HecateReport<Unwrapped<T>> {
     }
 }
 
-impl<T> FromResidual<<HecateReport<Unwrapped<T>> as Try>::Residual> for HecateReport<Wrapped<T>> {
-    fn from_residual(residual: <HecateReport<Unwrapped<T>> as Try>::Residual) -> Self {
+impl<'span, T> FromResidual<<HecateReport<'span, Unwrapped<T>> as Try>::Residual>
+    for HecateReport<'span, Wrapped<T>>
+{
+    fn from_residual(residual: <HecateReport<'span, Unwrapped<T>> as Try>::Residual) -> Self {
         match residual.internal_result {
             Fatal(error) => HecateReport {
                 warnings: residual.warnings,
@@ -174,10 +230,10 @@ impl<T> FromResidual<<HecateReport<Unwrapped<T>> as Try>::Residual> for HecateRe
     }
 }
 
-impl<T> Try for HecateReport<Unwrapped<T>> {
+impl<'span, T> Try for HecateReport<'span, Unwrapped<T>> {
     type Output = T;
 
-    type Residual = HecateReport<Wrapped<Infallible>>;
+    type Residual = HecateReport<'span, Wrapped<Infallible>>;
 
     fn from_output(output: Self::Output) -> Self {
         HecateReport::pure_unwrapped(output)
@@ -194,14 +250,20 @@ impl<T> Try for HecateReport<Unwrapped<T>> {
 #[macro_export]
 macro_rules! hecate_warning {
     ($meta:ident, $warning:expr) => {
-        $meta.add_warning(Box::new($warning));
+        $meta.add_warning(hecate_util::span::Span::dummied(Box::new($warning)));
+    };
+    ($meta:ident, $span:expr, $warning:expr) => {
+        $meta.add_warning($span.with(Box::new($warning)));
     };
 }
 
 #[macro_export]
 macro_rules! hecate_error {
     ($meta:ident, $error:expr) => {
-        $meta.add_error(Box::new($error));
+        $meta.add_error(hecate_util::span::Span::dummied(Box::new($error)));
+    };
+    ($meta:ident, $span:expr, $error:expr) => {
+        $meta.add_error($span.with(Box::new($error)));
     };
 }
 
